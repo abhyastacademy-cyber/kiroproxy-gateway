@@ -1,0 +1,57 @@
+{
+  "provider": "auto",
+  "mode": "proxy",
+  "model": "global-automode",
+  "apiKey": "",
+  "rateMultiplier": 0.0,
+  "temperature": 0.7,
+  "maxTokens": 4096,
+  "kiloApiKey": "",
+  "clineApiKey": "",
+  "ngrokAuthtoken": "",
+  "baseUrl": "https://openrouter.ai/api/v1",
+  "timeoutMs": 120000,
+  "providers": {
+    "kilo": {
+      "enabled": true,
+      "apiKey": ""
+    },
+    "cline": {
+      "enabled": true,
+      "apiKey": ""
+    },
+    "openrouter": {
+      "enabled": true,
+      "apiKey": ""
+    },
+    "orcarouter": {
+      "enabled": true,
+      "apiKey": ""
+    },
+    "ngrok": {
+      "enabled": false,
+      "authtoken": ""
+    },
+    "gemini": {
+      "enabled": true,
+      "apiKey": ""
+    }
+  },
+  "headlessGeminiWorker": {
+    "enabled": false,
+    "autoStart": false,
+    "chromeExecutablePath": ""
+  },
+  "customProviders": [
+    {
+      "name": "Groq",
+      "baseUrl": "https://api.groq.com/openai/v1",
+      "apiKey": "",
+      "defaultModel": "llama-3.3-70b-versatile",
+      "priority": "high",
+      "autoPopulate": true,
+      "freeOnly": true,
+      "enabled": true
+    }
+  ]
+}

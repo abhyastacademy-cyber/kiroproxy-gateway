@@ -1,0 +1,8 @@
+{
+  "name": "KiroProxy Gateway Cloud",
+  "description": "Cloud-native KiroProxy Gateway patcher.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

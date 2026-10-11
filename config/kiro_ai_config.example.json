@@ -1,0 +1,75 @@
+{
+  "provider": "auto",
+  "mode": "proxy",
+  "model": "global-automode",
+  "apiKey": "",
+  "rateMultiplier": 0.0,
+  "temperature": 0.7,
+  "maxTokens": 4096,
+  "kiloApiKeys": ["sk-kilo-..."],
+  "clineApiKeys": ["cline-..."],
+  "openrouterApiKeys": ["sk-or-v1-..."],
+  "orcarouterApiKeys": ["orca-..."],
+  "geminiApiKeys": ["AIzaSy..."],
+  "ngrokAuthtoken": "your_ngrok_token",
+  "baseUrl": "https://openrouter.ai/api/v1",
+  "timeoutMs": 120000,
+  "providers": {
+    "kilo": {
+      "enabled": true,
+      "apiKey": ""
+    },
+    "cline": {
+      "enabled": true,
+      "apiKey": ""
+    },
+    "openrouter": {
+      "enabled": true,
+      "apiKey": ""
+    },
+    "orcarouter": {
+      "enabled": true,
+      "apiKey": ""
+    },
+    "ngrok": {
+      "enabled": false,
+      "authtoken": ""
+    },
+    "gemini": {
+      "enabled": true,
+      "apiKey": ""
+    }
+  },
+  "customProviders": [
+    {
+      "name": "Groq",
+      "baseUrl": "https://api.groq.com/openai/v1",
+      "apiKey": "gsk_...",
+      "defaultModel": "llama-3.3-70b-versatile",
+      "priority": "high",
+      "autoPopulate": true,
+      "freeOnly": true,
+      "enabled": true
+    },
+    {
+      "name": "GLM",
+      "baseUrl": "https://devgateway.space-z.ai/api/v1",
+      "apiKey": "sk-devgw-master-key",
+      "defaultModel": "glm-4-flash",
+      "priority": "high",
+      "autoPopulate": true,
+      "freeOnly": true,
+      "enabled": true
+    },
+    {
+      "name": "Abhyast-Gemini",
+      "baseUrl": "https://corset-decipher-vocation.ngrok-free.dev/api/v1",
+      "apiKey": "sk-devgw-master-key",
+      "defaultModel": "gemini-3.8-flash",
+      "priority": "high",
+      "autoPopulate": true,
+      "freeOnly": true,
+      "enabled": true
+    }
+  ]
+}
