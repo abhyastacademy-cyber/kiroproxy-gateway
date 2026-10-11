@@ -4,7 +4,6 @@ import {
   Copy,
   Check,
   Upload,
-  Save,
   Cloud,
   FileText,
   AlertCircle,
@@ -101,41 +100,41 @@ export const BackupTab: React.FC<BackupTabProps> = ({
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          <Cloud className="w-5 h-5 text-indigo-400" />
-          Stateless Cloud Backup & Environment Synchronization
+      <div className="p-6 rounded-2xl bg-[#0f0f12] border border-[#27272a]">
+        <h2 className="text-xl font-bold text-[#fafafa] flex items-center gap-2">
+          <Cloud className="w-5 h-5 text-[#fafafa]" />
+          Stateless Cloud Backup &amp; Environment Synchronization
         </h2>
-        <p className="text-xs text-slate-400 mt-1">
+        <p className="text-xs text-zinc-400 mt-1">
           Cloud containers (Google Cloud Run / AI Studio) have ephemeral disks on cold restarts.
-          Export your exact environment variables or save to <code className="text-slate-300 font-mono">kiro_ai_config.json</code>.
+          Export your exact environment variables or save to <code className="text-[#fafafa] font-mono">kiro_ai_config.json</code>.
         </p>
       </div>
 
       {/* Cloud Deploy Env Variables Card */}
-      <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+      <div className="p-6 rounded-2xl bg-[#0f0f12] border border-[#27272a] space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <FileText className="w-4 h-4 text-indigo-400" />
+            <h3 className="text-sm font-bold text-[#fafafa] uppercase tracking-wider flex items-center gap-2">
+              <FileText className="w-4 h-4 text-[#fafafa]" />
               Environment Variables for Cloud Deployment
             </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Copy and paste directly into Google Cloud Run / AI Studio deployment settings or your production .env file.
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Copy and paste directly into Google Cloud Run / AI Studio container settings or your production .env file.
             </p>
           </div>
           <button
             onClick={handleCopyEnv}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/20 transition-colors self-start sm:self-auto"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#fafafa] hover:bg-[#e4e4e7] text-[#09090b] text-xs font-semibold shadow-sm transition-colors self-start sm:self-auto cursor-pointer"
           >
-            {copiedEnv ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+            {copiedEnv ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-[#09090b]" />}
             <span>{copiedEnv ? 'Copied to Clipboard' : 'Copy Env Variables for Cloud Deploy'}</span>
           </button>
         </div>
 
-        <pre className="p-4 bg-slate-950 rounded-xl border border-slate-800 font-mono text-xs text-emerald-400 overflow-x-auto whitespace-pre">
+        <pre className="p-4 bg-[#050507] rounded-xl border border-[#27272a] font-mono text-xs text-emerald-400 overflow-x-auto whitespace-pre">
           {envContent || '# Loading environment configuration...'}
         </pre>
       </div>
@@ -143,25 +142,25 @@ export const BackupTab: React.FC<BackupTabProps> = ({
       {/* JSON File Backup & Restore */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Export JSON */}
-        <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2">
-            <Download className="w-4 h-4 text-indigo-400" />
+        <div className="p-6 rounded-2xl bg-[#0f0f12] border border-[#27272a] space-y-3">
+          <h3 className="text-sm font-bold text-[#fafafa] flex items-center gap-2">
+            <Download className="w-4 h-4 text-[#fafafa]" />
             Download kiro_ai_config.json
           </h3>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-zinc-400">
             Export complete configuration JSON file including all custom provider endpoints and model mappings.
           </p>
           <div className="pt-2 flex items-center gap-2">
             <button
               onClick={handleDownloadJson}
-              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium border border-slate-700 transition-colors flex items-center gap-1.5"
+              className="px-3.5 py-2 rounded-xl bg-[#141417] hover:bg-[#1c1c21] text-[#fafafa] text-xs font-medium border border-[#27272a] transition-colors flex items-center gap-1.5 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Download Config</span>
             </button>
             <button
               onClick={handleCopyJson}
-              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium border border-slate-700 transition-colors flex items-center gap-1.5"
+              className="px-3.5 py-2 rounded-xl bg-[#141417] hover:bg-[#1c1c21] text-zinc-300 text-xs font-medium border border-[#27272a] transition-colors flex items-center gap-1.5 cursor-pointer"
             >
               {copiedJson ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copiedJson ? 'Copied' : 'Copy JSON'}</span>
@@ -170,16 +169,16 @@ export const BackupTab: React.FC<BackupTabProps> = ({
         </div>
 
         {/* Import JSON */}
-        <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2">
-            <Upload className="w-4 h-4 text-purple-400" />
+        <div className="p-6 rounded-2xl bg-[#0f0f12] border border-[#27272a] space-y-3">
+          <h3 className="text-sm font-bold text-[#fafafa] flex items-center gap-2">
+            <Upload className="w-4 h-4 text-[#fafafa]" />
             Restore kiro_ai_config.json
           </h3>
-          <p className="text-xs text-slate-400">
-            Upload an existing configuration file to instantly restore all tiers and providers.
+          <p className="text-xs text-zinc-400">
+            Upload an existing configuration file to instantly restore all 7 tiers, custom endpoints, and keys.
           </p>
           <div className="pt-2">
-            <label className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium border border-slate-700 cursor-pointer transition-colors">
+            <label className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#141417] hover:bg-[#1c1c21] text-[#fafafa] text-xs font-medium border border-[#27272a] cursor-pointer transition-colors">
               <Upload className="w-3.5 h-3.5" />
               <span>Select File to Restore</span>
               <input

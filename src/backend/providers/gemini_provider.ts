@@ -22,39 +22,57 @@ export function normalizeGeminiModel(modelName: string): string {
 }
 
 export class GeminiProvider {
-  private getClient(customKey?: string): GoogleGenAI | null {
-    const key = customKey || configManager.getConfig().geminiApiKey || process.env.GEMINI_API_KEY;
-    if (!key || key === 'MY_GEMINI_API_KEY') return null;
-    return new GoogleGenAI({ apiKey: key });
+  private activeKeyIndex: number = 0;
+
+  private getCandidateKeys(customKey?: string): string[] {
+    if (customKey && customKey.trim().length > 0 && customKey !== 'MY_GEMINI_API_KEY') {
+      return [customKey.trim()];
+    }
+    const config = configManager.getConfig();
+    const keys: string[] = [];
+    if (Array.isArray(config.geminiApiKeys)) {
+      for (const k of config.geminiApiKeys) {
+        if (k && k.trim().length > 0 && k !== 'MY_GEMINI_API_KEY' && !keys.includes(k.trim())) {
+          keys.push(k.trim());
+        }
+      }
+    }
+    if (config.geminiApiKey && config.geminiApiKey.trim().length > 0 && config.geminiApiKey !== 'MY_GEMINI_API_KEY' && !keys.includes(config.geminiApiKey.trim())) {
+      keys.push(config.geminiApiKey.trim());
+    }
+    const envKey = process.env.GEMINI_API_KEY;
+    if (envKey && envKey.trim().length > 0 && envKey !== 'MY_GEMINI_API_KEY' && !keys.includes(envKey.trim())) {
+      keys.push(envKey.trim());
+    }
+    return keys;
   }
 
   public isAvailable(customKey?: string): boolean {
-    const key = customKey || configManager.getConfig().geminiApiKey || process.env.GEMINI_API_KEY;
-    return !!key && key.trim().length > 0 && key !== 'MY_GEMINI_API_KEY';
+    return this.getCandidateKeys(customKey).length > 0;
   }
 
   public async streamGenerate(
     messages: ChatMessage[],
     systemInstruction?: string,
     modelName: string = 'gemini-3.8-flash',
-    onChunk?: (text: string) => void
+    onChunk?: (text: string) => void,
+    customApiKey?: string
   ): Promise<string> {
-    const client = this.getClient();
-    if (!client) {
+    const candidateKeys = this.getCandidateKeys(customApiKey);
+    if (candidateKeys.length === 0) {
       throw new Error('GEMINI_API_KEY is not configured in environment or settings.');
     }
 
     // Map messages for Gemini API
     const contents: any[] = [];
     for (const msg of messages) {
-      if (msg.role === 'system') continue; // Handled in config
+      if (msg.role === 'system') continue;
       contents.push({
         role: msg.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: msg.content }],
       });
     }
 
-    // If no user message was provided, add default prompt
     if (contents.length === 0) {
       contents.push({
         role: 'user',
@@ -62,31 +80,50 @@ export class GeminiProvider {
       });
     }
 
-    // Clean model name (support gemini-2.5-flash, gemini-2.5-pro, gemini-3.8-flash, virtual canvas models, etc.)
     const cleanModel = normalizeGeminiModel(modelName);
+    let lastError: Error | null = null;
 
-    const responseStream = await client.models.generateContentStream({
-      model: cleanModel,
-      contents,
-      config: {
-        systemInstruction: systemInstruction || undefined,
-        temperature: configManager.getConfig().temperature,
-        maxOutputTokens: configManager.getConfig().maxTokens,
-      },
-    });
+    // Multi-key failover rotation loop across all available Gemini API keys
+    const totalKeys = candidateKeys.length;
+    for (let attempt = 0; attempt < totalKeys; attempt++) {
+      const keyIndex = (this.activeKeyIndex + attempt) % totalKeys;
+      const apiKey = candidateKeys[keyIndex];
 
-    let fullText = '';
-    for await (const chunk of responseStream) {
-      const text = chunk.text || '';
-      if (text) {
-        fullText += text;
-        if (onChunk) {
-          onChunk(text);
+      try {
+        const client = new GoogleGenAI({ apiKey });
+        const responseStream = await client.models.generateContentStream({
+          model: cleanModel,
+          contents,
+          config: {
+            systemInstruction: systemInstruction || undefined,
+            temperature: configManager.getConfig().temperature,
+            maxOutputTokens: configManager.getConfig().maxTokens,
+          },
+        });
+
+        let fullText = '';
+        for await (const chunk of responseStream) {
+          const text = chunk.text || '';
+          if (text) {
+            fullText += text;
+            if (onChunk) {
+              onChunk(text);
+            }
+          }
         }
+
+        // Keep activeKeyIndex sticky on success
+        this.activeKeyIndex = keyIndex;
+        return fullText;
+      } catch (err: any) {
+        lastError = err;
+        const errMsg = err?.message || String(err);
+        const isQuotaOrAuth = errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('quota') || errMsg.includes('API_KEY_INVALID');
+        console.warn(`[GeminiProvider] Key #${keyIndex + 1} failed (${errMsg.substring(0, 150)}). ` + (isQuotaOrAuth ? 'Rotating to next Gemini key...' : 'Retrying next key...'));
       }
     }
 
-    return fullText;
+    throw lastError || new Error('All Gemini API keys in multi-key rotation failed.');
   }
 }
 

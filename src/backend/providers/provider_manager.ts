@@ -73,7 +73,30 @@ export class ProviderManager {
       }
     }
 
-    // 3. Special case: if requested model matches an enabled custom provider (e.g. glm-4-flash, qwen/*), try it directly
+    // 3. Special case: if user explicitly selected a Gemini model (and NOT in global-automode)
+    if (!isAutomode && requestedModel.toLowerCase().startsWith('gemini-') && geminiProvider.isAvailable()) {
+      try {
+        const text = await geminiProvider.streamGenerate(
+          options.messages,
+          options.systemPrompt,
+          requestedModel,
+          onChunk
+        );
+        healthManager.recordMetric({
+          timestamp: Date.now(),
+          provider: 'gemini',
+          model: requestedModel,
+          durationMs: Date.now() - startTime,
+          status: 'success',
+          bytesSent: text.length,
+        });
+        return { text, providerUsed: 'gemini', modelUsed: requestedModel };
+      } catch (geminiErr: any) {
+        console.warn(`[ProviderManager] Direct Gemini request failed (${geminiErr.message}). Falling back to priority waterfall...`);
+      }
+    }
+
+    // 4. Special case: if requested model matches an enabled custom provider
     if (!isAutomode) {
       const matchingCustom = config.customProviders.find(
         (cp) => cp.enabled && (cp.activeModel === requestedModel || cp.defaultModel === requestedModel || cp.modelMapping?.[requestedModel])
@@ -105,7 +128,7 @@ export class ProviderManager {
       }
     }
 
-    // 4. Full 6-Tier Waterfall: kilo -> cline -> openrouter -> orcarouter -> gemini -> custom -> canvas
+    // 5. Full 7-Tier Waterfall: kilo -> cline -> openrouter -> orcarouter -> gemini -> custom -> canvas
     const priorityTiers = config.providerPriorityOrder;
     let lastError: Error = new Error('No providers available in priority list');
 
@@ -116,8 +139,12 @@ export class ProviderManager {
       try {
         // HTTP/Otomode tiers: kilo, openrouter, cline, orcarouter
         if (['kilo', 'openrouter', 'cline', 'orcarouter'].includes(tierClean)) {
-          // If global-automode, run this tier's free-model engine
-          const shouldRunOto = isAutomode || requestedModel.startsWith(`${tierClean}/`);
+          const hasKey = Boolean(
+            (config as any)[`${tierClean}ApiKey`] ||
+            ((config as any)[`${tierClean}ApiKeys`]?.length > 0) ||
+            ((config as any).providers?.[tierClean]?.apiKey)
+          );
+          const shouldRunOto = (isAutomode && hasKey) || requestedModel === `${tierClean}-otomode` || requestedModel.startsWith(`${tierClean}/`);
           if (shouldRunOto) {
             try {
               const otoRes = await runProviderOtomode(tierClean as OtomodeType, options, onChunk);
@@ -218,13 +245,15 @@ export class ProviderManager {
       }
     }
 
-    // If all configured tiers failed or were unconfigured, stream a helpful setup guide into Kiro IDE
+    // If all configured tiers failed, stream helpful diagnostic setup guide
     const diagnosticMessage = `[KiroProxy Cloud Gateway Ready]\n` +
-      `Your Kiro IDE is successfully connected to the AI Studio Published Domain!\n\n` +
-      `To generate responses, please configure at least one active provider tier:\n` +
-      `1. Gemini API: Add GEMINI_API_KEY in AI Studio Secrets / .env (Tier 'gemini')\n` +
-      `2. Custom Upstream: Go to the Gateway Web GUI -> 'Priority Tiers & Failover' -> add OpenRouter or OpenAI (Tier 'custom')\n` +
-      `3. Canvas Bridge: Go to 'Gemini Canvas Bridge' tab -> click 'Start Simulator' (Tier 'canvas')\n\n` +
+      `Your Kiro IDE is successfully connected to the Cloud Gateway on Google AI Studio / Cloud Run!\n` +
+      `Native Cloud HTTPS ingress is active (no local ngrok daemon required).\n\n` +
+      `To generate responses, please configure at least one active provider tier in the Web GUI:\n` +
+      `1. Kilo Gateway: Tier 'kilo' rotates across 177+ free models (Zero-Key mode enabled)\n` +
+      `2. Gemini API: Add GEMINI_API_KEY in AI Studio Secrets / .env (Tier 'gemini')\n` +
+      `3. Custom Upstream: In Web GUI -> 'Priority Tiers & Failover' -> add OpenRouter or OpenAI (Tier 'custom')\n` +
+      `4. Canvas Bridge: In Web GUI -> 'Gemini Canvas Bridge' -> click 'Start Simulator' (Tier 'canvas')\n\n` +
       `Reason: ${lastError.message}`;
 
     onChunk(diagnosticMessage);
@@ -248,13 +277,10 @@ export class ProviderManager {
       model,
       prompt: userPrompt,
       systemPrompt: options.systemPrompt,
-      messages: options.messages,
-      temperature: options.temperature,
-      maxTokens: options.maxTokens,
     });
 
     taskHandle.onChunk(onChunk);
-    return await taskHandle.promise;
+    return taskHandle.promise;
   }
 }
 

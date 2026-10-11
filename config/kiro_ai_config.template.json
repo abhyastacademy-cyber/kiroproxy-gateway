@@ -8,9 +8,22 @@
   "maxTokens": 4096,
   "kiloApiKey": "",
   "clineApiKey": "",
+  "openrouterApiKey": "",
+  "orcarouterApiKey": "",
+  "geminiApiKey": "",
+  "enableNgrokTunnel": false,
   "ngrokAuthtoken": "",
   "baseUrl": "https://openrouter.ai/api/v1",
   "timeoutMs": 120000,
+  "providerPriorityOrder": [
+    "kilo",
+    "cline",
+    "openrouter",
+    "orcarouter",
+    "gemini",
+    "custom",
+    "canvas"
+  ],
   "providers": {
     "kilo": {
       "enabled": true,
@@ -44,10 +57,48 @@
   },
   "customProviders": [
     {
+      "id": "groq",
       "name": "Groq",
       "baseUrl": "https://api.groq.com/openai/v1",
+      "baseUrls": [
+        "https://api.groq.com/openai/v1"
+      ],
       "apiKey": "",
+      "apiKeys": [],
       "defaultModel": "llama-3.3-70b-versatile",
+      "activeModel": "llama-3.3-70b-versatile",
+      "priority": "high",
+      "autoPopulate": true,
+      "freeOnly": true,
+      "enabled": true
+    },
+    {
+      "id": "openrouter",
+      "name": "OpenRouter",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "baseUrls": [
+        "https://openrouter.ai/api/v1"
+      ],
+      "apiKey": "",
+      "apiKeys": [],
+      "defaultModel": "meta-llama/llama-3.3-70b-instruct:free",
+      "activeModel": "meta-llama/llama-3.3-70b-instruct:free",
+      "priority": "high",
+      "autoPopulate": true,
+      "freeOnly": true,
+      "enabled": true
+    },
+    {
+      "id": "gemini-direct",
+      "name": "Gemini-Direct",
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "baseUrls": [
+        "https://generativelanguage.googleapis.com/v1beta/openai"
+      ],
+      "apiKey": "",
+      "apiKeys": [],
+      "defaultModel": "gemini-3.8-flash",
+      "activeModel": "gemini-3.8-flash",
       "priority": "high",
       "autoPopulate": true,
       "freeOnly": true,

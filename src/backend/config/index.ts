@@ -22,6 +22,7 @@ export interface KiroGatewayConfig {
   host: string;
   port: number;
   publicDomainUrl: string;
+  detectedPublicUrl?: string;
   adminToken: string;
   providerPriorityOrder: string[];
   customProviders: CustomProvider[];
@@ -36,6 +37,19 @@ export interface KiroGatewayConfig {
   enableNgrokTunnel: boolean;
   ngrokAuthToken: string;
   geminiApiKey: string;
+  geminiApiKeys?: string[];
+  kiloApiKey?: string;
+  kiloApiKeys?: string[];
+  clineApiKey?: string;
+  clineApiKeys?: string[];
+  openrouterApiKey?: string;
+  openrouterApiKeys?: string[];
+  orcarouterApiKey?: string;
+  orcarouterApiKeys?: string[];
+  globalAutoMode: boolean;
+  otoMode: boolean;
+  maxAutoSteps: number;
+  autoApproveTools: boolean;
   providers?: Record<string, { enabled?: boolean; apiKey?: string; authtoken?: string }>;
   headlessGeminiWorker?: { enabled?: boolean; autoStart?: boolean; chromeExecutablePath?: string };
 }
@@ -75,12 +89,14 @@ function normalizeCustomProvider(p: any, idx: number): CustomProvider {
   };
 }
 
+const CANONICAL_CLOUD_GATEWAY_URL = 'https://kiroproxy-746899042471.asia-southeast1.run.app';
+
 const DEFAULT_CONFIG: KiroGatewayConfig = {
   host: process.env.HOST || '0.0.0.0',
   port: process.env.PORT ? parseInt(process.env.PORT, 10) : 3000,
-  publicDomainUrl: process.env.PUBLIC_DOMAIN_URL || process.env.APP_URL || process.env.SERVICE_URL || '',
+  publicDomainUrl: process.env.PUBLIC_DOMAIN_URL || process.env.APP_URL || process.env.SERVICE_URL || CANONICAL_CLOUD_GATEWAY_URL,
   adminToken: process.env.PROXY_ADMIN_TOKEN || '',
-  providerPriorityOrder: (process.env.PROVIDER_PRIORITY_ORDER || 'kilo,cline,openrouter,orcarouter,gemini,custom')
+  providerPriorityOrder: (process.env.PROVIDER_PRIORITY_ORDER || 'kilo,cline,openrouter,orcarouter,gemini,custom,canvas')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean),
@@ -88,9 +104,22 @@ const DEFAULT_CONFIG: KiroGatewayConfig = {
   activeDefaultModel: 'gemini-3.8-flash',
   temperature: 0.7,
   maxTokens: 4096,
-  enableNgrokTunnel: false,
+  enableNgrokTunnel: false, // Cloud Run provides native public HTTPS; ngrok is not needed in cloud
   ngrokAuthToken: process.env.NGROK_AUTHTOKEN || '',
   geminiApiKey: process.env.GEMINI_API_KEY || '',
+  geminiApiKeys: [],
+  kiloApiKey: process.env.KILO_API_KEY || '',
+  kiloApiKeys: [],
+  clineApiKey: process.env.CLINE_API_KEY || '',
+  clineApiKeys: [],
+  openrouterApiKey: process.env.OPENROUTER_API_KEY || '',
+  openrouterApiKeys: [],
+  orcarouterApiKey: process.env.ORCAROUTER_API_KEY || '',
+  orcarouterApiKeys: [],
+  globalAutoMode: true,
+  otoMode: true,
+  maxAutoSteps: 25,
+  autoApproveTools: true,
 };
 
 // Paths for persistence
@@ -164,6 +193,19 @@ class ConfigManager {
       publicDomainUrl: process.env.PUBLIC_DOMAIN_URL || process.env.APP_URL || process.env.SERVICE_URL || fileConfig.publicDomainUrl || '',
       adminToken: process.env.PROXY_ADMIN_TOKEN || fileConfig.adminToken || '',
       geminiApiKey: process.env.GEMINI_API_KEY || fileConfig.geminiApiKey || fileConfig.geminiApiKeys?.[0] || fileConfig.providers?.gemini?.apiKey || '',
+      geminiApiKeys: Array.isArray(fileConfig.geminiApiKeys) ? fileConfig.geminiApiKeys : (fileConfig.geminiApiKey ? [fileConfig.geminiApiKey] : []),
+      kiloApiKey: process.env.KILO_API_KEY || fileConfig.kiloApiKey || fileConfig.kiloApiKeys?.[0] || fileConfig.providers?.kilo?.apiKey || '',
+      kiloApiKeys: Array.isArray(fileConfig.kiloApiKeys) ? fileConfig.kiloApiKeys : (fileConfig.kiloApiKey ? [fileConfig.kiloApiKey] : []),
+      clineApiKey: process.env.CLINE_API_KEY || fileConfig.clineApiKey || fileConfig.clineApiKeys?.[0] || fileConfig.providers?.cline?.apiKey || '',
+      clineApiKeys: Array.isArray(fileConfig.clineApiKeys) ? fileConfig.clineApiKeys : (fileConfig.clineApiKey ? [fileConfig.clineApiKey] : []),
+      openrouterApiKey: process.env.OPENROUTER_API_KEY || fileConfig.openrouterApiKey || fileConfig.openrouterApiKeys?.[0] || fileConfig.providers?.openrouter?.apiKey || '',
+      openrouterApiKeys: Array.isArray(fileConfig.openrouterApiKeys) ? fileConfig.openrouterApiKeys : (fileConfig.openrouterApiKey ? [fileConfig.openrouterApiKey] : []),
+      orcarouterApiKey: process.env.ORCAROUTER_API_KEY || fileConfig.orcarouterApiKey || fileConfig.orcarouterApiKeys?.[0] || fileConfig.providers?.orcarouter?.apiKey || '',
+      orcarouterApiKeys: Array.isArray(fileConfig.orcarouterApiKeys) ? fileConfig.orcarouterApiKeys : (fileConfig.orcarouterApiKey ? [fileConfig.orcarouterApiKey] : []),
+      globalAutoMode: fileConfig.globalAutoMode ?? true,
+      otoMode: fileConfig.otoMode ?? true,
+      maxAutoSteps: fileConfig.maxAutoSteps ?? 25,
+      autoApproveTools: fileConfig.autoApproveTools ?? true,
       ngrokAuthToken: process.env.NGROK_AUTHTOKEN || fileConfig.ngrokAuthtoken || fileConfig.providers?.ngrok?.authtoken || '',
       providerPriorityOrder: envPriorityOrder || fileConfig.providerPriorityOrder || DEFAULT_CONFIG.providerPriorityOrder,
       customProviders: sanitizedCustomProviders,
@@ -222,8 +264,11 @@ class ConfigManager {
       `PROXY_ADMIN_TOKEN="${this.config.adminToken}"`,
       `PROVIDER_PRIORITY_ORDER="${this.config.providerPriorityOrder.join(',')}"`,
       `CUSTOM_PROVIDERS_JSON='${JSON.stringify(this.config.customProviders)}'`,
+      `GLOBAL_AUTOMODE="${this.config.globalAutoMode}"`,
+      `OTO_MODE="${this.config.otoMode}"`,
       this.config.geminiApiKey ? `GEMINI_API_KEY="${this.config.geminiApiKey}"` : `# GEMINI_API_KEY=""`,
-      this.config.ngrokAuthToken ? `NGROK_AUTHTOKEN="${this.config.ngrokAuthToken}"` : `# NGROK_AUTHTOKEN=""`,
+      this.config.kiloApiKey ? `KILO_API_KEY="${this.config.kiloApiKey}"` : `# KILO_API_KEY=""`,
+      this.config.openrouterApiKey ? `OPENROUTER_API_KEY="${this.config.openrouterApiKey}"` : `# OPENROUTER_API_KEY=""`,
     ].join('\n');
   }
 }

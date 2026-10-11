@@ -24,12 +24,12 @@
  *        or running `--revert` / `--restore` never corrupts `extension.js`.
  *
  * Usage:
- *   node patch_kiro_extension_studio.js --url https://kiroproxy.ai.studio
- *   node patch_kiro_extension_studio.js --url https://kiroproxy-746899042471.asia-southeast1.run.app
- *   node patch_kiro_extension_studio.js --url http://127.0.0.1:8084
- *   node patch_kiro_extension_studio.js --token mySecretKey --url https://kiroproxy.ai.studio
- *   node patch_kiro_extension_studio.js --check
- *   node patch_kiro_extension_studio.js --revert
+ *   node patch_kiro_extension.js --url https://kiroproxy.ai.studio
+ *   node patch_kiro_extension.js --url https://kiroproxy-746899042471.asia-southeast1.run.app
+ *   node patch_kiro_extension.js --url http://127.0.0.1:8084
+ *   node patch_kiro_extension.js --token mySecretKey --url https://kiroproxy.ai.studio
+ *   node patch_kiro_extension.js --check
+ *   node patch_kiro_extension.js --revert
  */
 
 'use strict';
@@ -81,11 +81,11 @@ function printHelp() {
 ╚══════════════════════════════════════════════════════════════════════╝
 
 Usage:
-  node patch_kiro_extension_studio.js --url https://kiroproxy.ai.studio
-  node patch_kiro_extension_studio.js --url https://kiroproxy-746899042471.asia-southeast1.run.app
-  node patch_kiro_extension_studio.js --url http://127.0.0.1:8084
-  node patch_kiro_extension_studio.js --check
-  node patch_kiro_extension_studio.js --revert
+  node patch_kiro_extension.js --url https://kiroproxy.ai.studio
+  node patch_kiro_extension.js --url https://kiroproxy-746899042471.asia-southeast1.run.app
+  node patch_kiro_extension.js --url http://127.0.0.1:8084
+  node patch_kiro_extension.js --check
+  node patch_kiro_extension.js --revert
 
 Options:
   --url <domain>     Target gateway URL (defaults to ${DEFAULT_CLOUD_URL})
@@ -244,7 +244,7 @@ async function run() {
 
   if (!extFile || !fs.existsSync(extFile)) {
     console.error('\n[ERROR] Could not locate Kiro IDE extension.js automatically.');
-    console.error('Pass the explicit path via: node patch_kiro_extension_studio.js --path <path/to/extension.js> --url ' + cleanUrl);
+    console.error('Pass the explicit path via: node patch_kiro_extension.js --path <path/to/extension.js> --url ' + cleanUrl);
     process.exit(1);
   }
 

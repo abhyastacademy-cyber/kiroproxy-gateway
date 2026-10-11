@@ -25,26 +25,27 @@ class HealthAndResilienceManager {
   }
 
   private detectCloudEnvironment() {
-    const envUrl = process.env.PUBLIC_DOMAIN_URL || process.env.APP_URL || process.env.SERVICE_URL;
+    const envUrl = process.env.PUBLIC_DOMAIN_URL || process.env.APP_URL || process.env.SERVICE_URL || 'https://kiroproxy-746899042471.asia-southeast1.run.app';
     if (envUrl) {
       configManager.setPublicDomainUrl(envUrl);
     }
   }
 
   /**
-   * Returns active public URL (published Cloud Run domain, or ngrok tunnel, or request fallback)
+   * Returns active public URL.
+   * In Cloud Run / Google AI Studio, native HTTPS ingress completely replaces ngrok!
    */
   public getTunnelUrl(requestHost?: string, requestProtocol?: string): string {
     const config = configManager.getConfig();
     if (config.publicDomainUrl) {
       return config.publicDomainUrl;
     }
-    if (this.ngrokUrl) {
-      return this.ngrokUrl;
-    }
     if (requestHost) {
       const proto = requestProtocol || 'https';
       return `${proto}://${requestHost}`;
+    }
+    if (this.ngrokUrl) {
+      return this.ngrokUrl;
     }
     return `http://${config.host}:${config.port}`;
   }
@@ -90,7 +91,16 @@ class HealthAndResilienceManager {
         publicUrl,
         host: config.host,
         port: config.port,
-        ngrokActive: this.ngrokRunning,
+        ngrokActive: false, // Cloud Run native public domain replaces ngrok
+        ngrokNeeded: false,
+        nativeCloudHttps: true,
+      },
+      autoMode: {
+        globalAutoMode: config.globalAutoMode,
+        otoMode: config.otoMode,
+        maxAutoSteps: config.maxAutoSteps,
+        autoApproveTools: config.autoApproveTools,
+        status: config.globalAutoMode ? 'ACTIVE' : 'PAUSED',
       },
       stats: {
         totalRequests: this.totalRequests,

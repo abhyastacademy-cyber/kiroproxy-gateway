@@ -144,8 +144,18 @@ async function startServer() {
         pricing: { prompt: '0', completion: '0', unit: 'credit' },
       },
       {
+        modelId: 'canvas-gemini-flash',
+        modelName: 'Gemini Canvas Cloud Bridge (Zero Cost)',
+        description: 'Native Cloud HTTPS reverse-polling bridge model (no ngrok required)',
+        rateMultiplier: 0,
+        rateUnit: 'credit',
+        supportedInputTypes: ['TEXT', 'IMAGE'],
+        tokenLimits: { maxInputTokens: 128000, maxOutputTokens: 16384 },
+        pricing: { prompt: '0', completion: '0', unit: 'credit' },
+      },
+      {
         modelId: 'ngrok-gemini-flash',
-        modelName: 'Gemini Canvas Bridge (Zero Cost)',
+        modelName: 'Gemini Canvas Bridge (Legacy Alias)',
         description: 'Reverse-polling bridge model',
         rateMultiplier: 0,
         rateUnit: 'credit',
@@ -274,23 +284,30 @@ async function startServer() {
     }
   });
 
-  // 8. Serve Frontend (Vite middleware in dev, dist in production)
-  const isProduction = process.env.NODE_ENV === 'production';
-  const distExists = fs.existsSync(path.resolve(__dirname, 'dist'));
+  // 8. Serve Frontend (dist in production/if exists, Vite middleware in dev)
+  const distPath = path.resolve(__dirname, 'dist');
+  const distExists = fs.existsSync(distPath) && fs.existsSync(path.resolve(distPath, 'index.html'));
 
-  if (!isProduction && !distExists) {
-    const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.resolve(__dirname, 'dist');
+  if (distExists) {
     app.use(express.static(distPath));
     app.get('*', (_req: Request, res: Response) => {
       res.sendFile(path.resolve(distPath, 'index.html'));
     });
+  } else {
+    try {
+      const { createServer: createViteServer } = await import('vite');
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    } catch (viteErr) {
+      console.warn('[Server] dist/ does not exist and Vite cannot be loaded. Serving fallback API status.');
+      app.get('*', (_req: Request, res: Response) => {
+        res.setHeader('Content-Type', 'text/html');
+        res.send('<!doctype html><html><body style="font-family:sans-serif;background:#09090b;color:#fafafa;padding:40px;"><h1>KiroProxy Cloud Gateway is live</h1><p>Frontend assets are not yet compiled. Connect Kiro IDE or call <a href="/health" style="color:#a1a1aa">/health</a>, <a href="/v1/models" style="color:#a1a1aa">/v1/models</a>, or <a href="/api/config" style="color:#a1a1aa">/api/config</a>.</p></body></html>');
+      });
+    }
   }
 
   // Bind to 0.0.0.0 and PORT

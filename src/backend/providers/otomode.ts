@@ -1,7 +1,7 @@
 import { configManager } from '../config/index.js';
 import type { ChatMessage } from './gemini_provider.js';
 
-// Top free models catalog for Kilo, OpenRouter, and OrcaRouter otomode rotation
+// Top free models catalog for Kilo, OpenRouter, Cline, OrcaRouter, and Gemini otomode rotation
 export const KILO_FREE_MODELS = [
   'meta-llama/llama-3.3-70b-instruct:free',
   'deepseek/deepseek-chat:free',
@@ -28,6 +28,7 @@ export const OPENROUTER_FREE_MODELS = [
 export const GEMINI_ROTATION_MODELS = [
   'gemini-3.8-flash',
   'gemini-2.5-pro',
+  'gemini-3-flash-preview',
   'gemini-2.0-flash-exp',
   'gemini-1.5-flash',
   'gemini-1.5-pro',
@@ -75,17 +76,19 @@ export async function runProviderOtomode(
         'https://api.kilo.ai/v1',
         'https://openrouter.ai/api/v1',
       ];
-      candidateApiKeys = (config as any).kiloApiKeys || [];
-      if ((config as any).kiloApiKey) candidateApiKeys.push((config as any).kiloApiKey);
+      candidateApiKeys = config.kiloApiKeys || [];
+      if (config.kiloApiKey && !candidateApiKeys.includes(config.kiloApiKey)) {
+        candidateApiKeys.push(config.kiloApiKey);
+      }
       if (candidateApiKeys.length === 0) candidateApiKeys.push(''); // Zero-key gateway mode
       break;
     }
     case 'openrouter': {
       candidateModels = OPENROUTER_FREE_MODELS;
       candidateBaseUrls = ['https://openrouter.ai/api/v1'];
-      candidateApiKeys = (config as any).openrouterApiKeys || [];
-      if ((config as any).providers?.openrouter?.apiKey) {
-        candidateApiKeys.push((config as any).providers.openrouter.apiKey);
+      candidateApiKeys = config.openrouterApiKeys || [];
+      if (config.openrouterApiKey && !candidateApiKeys.includes(config.openrouterApiKey)) {
+        candidateApiKeys.push(config.openrouterApiKey);
       }
       if (candidateApiKeys.length === 0) candidateApiKeys.push('');
       break;
@@ -93,55 +96,78 @@ export async function runProviderOtomode(
     case 'cline': {
       candidateModels = CLINE_FREE_MODELS;
       candidateBaseUrls = ['https://api.cline.bot/v1', 'https://openrouter.ai/api/v1'];
-      candidateApiKeys = (config as any).clineApiKeys || [];
-      if ((config as any).clineApiKey) candidateApiKeys.push((config as any).clineApiKey);
+      candidateApiKeys = config.clineApiKeys || [];
+      if (config.clineApiKey && !candidateApiKeys.includes(config.clineApiKey)) {
+        candidateApiKeys.push(config.clineApiKey);
+      }
       if (candidateApiKeys.length === 0) candidateApiKeys.push('');
       break;
     }
     case 'orcarouter': {
       candidateModels = ORCAROUTER_FREE_MODELS;
       candidateBaseUrls = ['https://api.orcarouter.com/v1', 'https://openrouter.ai/api/v1'];
-      candidateApiKeys = (config as any).orcarouterApiKeys || [];
+      candidateApiKeys = config.orcarouterApiKeys || [];
+      if (config.orcarouterApiKey && !candidateApiKeys.includes(config.orcarouterApiKey)) {
+        candidateApiKeys.push(config.orcarouterApiKey);
+      }
       if (candidateApiKeys.length === 0) candidateApiKeys.push('');
       break;
     }
     case 'gemini': {
       candidateModels = GEMINI_ROTATION_MODELS;
       candidateBaseUrls = [];
-      candidateApiKeys = (config as any).geminiApiKeys || [];
-      if (config.geminiApiKey) candidateApiKeys.push(config.geminiApiKey);
+      candidateApiKeys = config.geminiApiKeys || [];
+      if (config.geminiApiKey && !candidateApiKeys.includes(config.geminiApiKey)) {
+        candidateApiKeys.push(config.geminiApiKey);
+      }
+      if (process.env.GEMINI_API_KEY && !candidateApiKeys.includes(process.env.GEMINI_API_KEY)) {
+        candidateApiKeys.push(process.env.GEMINI_API_KEY);
+      }
       break;
     }
   }
 
-  // If gemini otomode, rotate across Gemini models using direct Gemini provider
+  // If gemini otomode, rotate across Gemini models and keys using direct Gemini provider
   if (otomode === 'gemini') {
     const { geminiProvider } = await import('./gemini_provider.js');
     let lastGeminiErr: Error | null = null;
+
+    const keysToTry = candidateApiKeys.length > 0 ? candidateApiKeys : [''];
     for (const m of candidateModels) {
-      try {
-        const text = await geminiProvider.streamGenerate(
-          options.messages,
-          options.systemPrompt,
-          m,
-          onChunk
-        );
-        return { text, modelUsed: m, providerUsed: 'gemini-otomode' };
-      } catch (err: any) {
-        lastGeminiErr = err;
-        console.warn(`[gemini-otomode] Model ${m} failed (${err.message}). Trying next candidate...`);
+      for (const k of keysToTry) {
+        try {
+          const text = await geminiProvider.streamGenerate(
+            options.messages,
+            options.systemPrompt,
+            m,
+            onChunk,
+            k || undefined
+          );
+          return { text, modelUsed: m, providerUsed: 'gemini-otomode' };
+        } catch (err: any) {
+          lastGeminiErr = err;
+          console.warn(`[gemini-otomode] Model ${m} failed (${err.message}). Trying next candidate...`);
+        }
       }
     }
     throw lastGeminiErr || new Error('All models in gemini-otomode rotation failed.');
   }
 
   // For HTTP/SSE providers (kilo, openrouter, cline, orcarouter):
-  // Rotate through models and keys
   let lastError: Error | null = null;
+  const hasRealKey = candidateApiKeys.some((k) => k && k.trim().length > 0);
+  const modelsToTry = hasRealKey ? candidateModels : candidateModels.slice(0, 1);
+  const timeoutMs = hasRealKey ? 10000 : 1500;
 
-  for (const model of candidateModels) {
-    for (const baseUrl of candidateBaseUrls) {
-      for (const apiKey of candidateApiKeys) {
+  for (const baseUrl of candidateBaseUrls) {
+    let baseUrlFailed = false;
+
+    for (const apiKey of candidateApiKeys) {
+      if (baseUrlFailed) break;
+
+      for (const model of modelsToTry) {
+        if (baseUrlFailed) break;
+
         try {
           const endpoint = baseUrl.endsWith('/chat/completions')
             ? baseUrl
@@ -158,7 +184,7 @@ export async function runProviderOtomode(
           }
 
           const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 20000);
+          const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
           try {
             const resp = await fetch(endpoint, {
@@ -175,8 +201,9 @@ export async function runProviderOtomode(
             });
 
             if (!resp.ok) {
+              baseUrlFailed = true;
               const errBody = await resp.text().catch(() => '');
-              throw new Error(`HTTP ${resp.status}: ${errBody.substring(0, 200)}`);
+              throw new Error(`HTTP ${resp.status}: ${errBody.substring(0, 100)}`);
             }
 
             if (!resp.body) throw new Error('No response body');
@@ -222,7 +249,15 @@ export async function runProviderOtomode(
           }
         } catch (err: any) {
           lastError = err;
-          // Rotate silently to next free model
+          if (
+            !hasRealKey ||
+            err.message.includes('AUTH_FAILED') ||
+            err.name === 'AbortError' ||
+            err.message.includes('fetch failed')
+          ) {
+            baseUrlFailed = true;
+            break;
+          }
         }
       }
     }

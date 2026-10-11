@@ -112,6 +112,9 @@ class CanvasBridge extends EventEmitter {
       if (payload.error) {
         emitter.emit('error', new Error(payload.error));
       } else {
+        if (payload.fullText) {
+          emitter.emit('chunk', payload.fullText);
+        }
         emitter.emit('done', payload.fullText);
       }
     }

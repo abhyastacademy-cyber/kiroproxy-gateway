@@ -11,7 +11,6 @@ import {
   Radio,
   Zap,
   Cloud,
-  FileText,
   AlertCircle,
 } from 'lucide-react';
 import { Navbar } from './frontend/components/Navbar.js';
@@ -123,6 +122,13 @@ export default function App() {
     }
   };
 
+  // Handle AutoMode toggle
+  const handleToggleAutoMode = async () => {
+    const currentState = config?.globalAutoMode ?? true;
+    const nextState = !currentState;
+    await handleSaveConfig({ globalAutoMode: nextState });
+  };
+
   const navItems = [
     { id: 'overview', label: 'Overview & Arch', icon: Activity },
     { id: 'providers', label: 'Priority Tiers & Failover', icon: Layers },
@@ -133,13 +139,15 @@ export default function App() {
   ] as const;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-[#09090b] text-[#fafafa] flex flex-col font-sans selection:bg-[#27272a] selection:text-[#fafafa]">
       {/* Top Navbar */}
       <Navbar
         health={health}
+        config={config}
         adminToken={adminToken}
         onOpenSecurityModal={() => setIsSecurityModalOpen(true)}
         onRefresh={loadSystemData}
+        onToggleAutoMode={handleToggleAutoMode}
         isRefreshing={isRefreshing}
       />
 
@@ -147,14 +155,14 @@ export default function App() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Auth Notice if 401 */}
         {authError && (
-          <div className="p-4 rounded-xl bg-amber-950/40 border border-amber-500/30 flex items-center justify-between text-xs text-amber-200">
+          <div className="p-4 rounded-xl bg-[#141417] border border-amber-500/30 flex items-center justify-between text-xs text-amber-200">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
               <span>{authError}</span>
             </div>
             <button
               onClick={() => setIsSecurityModalOpen(true)}
-              className="px-3 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-semibold"
+              className="px-3 py-1 rounded bg-[#27272a] hover:bg-[#3f3f46] text-amber-300 font-semibold border border-[#3f3f46] transition-colors"
             >
               Enter Token
             </button>
@@ -162,7 +170,7 @@ export default function App() {
         )}
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-900 border border-slate-800 overflow-x-auto">
+        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[#0f0f12] border border-[#27272a] overflow-x-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -172,11 +180,11 @@ export default function App() {
                 onClick={() => setActiveTab(item.id)}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
                   isActive
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                    ? 'bg-[#fafafa] text-[#09090b] shadow-sm'
+                    : 'text-zinc-400 hover:text-[#fafafa] hover:bg-[#141417]'
                 }`}
               >
-                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-[#09090b]' : 'text-zinc-400'}`} />
                 <span>{item.label}</span>
               </button>
             );
@@ -232,7 +240,7 @@ export default function App() {
       />
 
       {/* Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950 py-6 mt-12 text-center text-xs text-slate-500">
+      <footer className="border-t border-[#27272a] bg-[#09090b] py-6 mt-12 text-center text-xs text-zinc-500">
         <p>
           KiroProxy Cloud Gateway • Drop-in zero-local-daemon alternative for Kiro IDE & AWS Bedrock
         </p>

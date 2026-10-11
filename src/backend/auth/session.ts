@@ -18,8 +18,8 @@ class SessionAuthManager {
   public login(username?: string, password?: string): { success: boolean; token?: string; error?: string } {
     const config = configManager.getConfig();
 
-    const expectedUser = (config.adminUser || 'admin').trim();
-    const expectedPassword = (config.adminPassword || 'kiroproxy2026').trim();
+    const expectedUser = (process.env.GATEWAY_ADMIN_USER || 'admin').trim();
+    const expectedPassword = (process.env.GATEWAY_ADMIN_PASSWORD || process.env.PROXY_ADMIN_TOKEN || '').trim();
 
     const inputUser = (username || '').trim();
     const inputPassword = (password || '').trim();

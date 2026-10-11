@@ -18,6 +18,8 @@ export async function handleModels(req: Request, res: Response) {
     { id: 'gemini-3.8-flash', object: 'model', owned_by: 'google' },
     { id: 'gemini-2.5-pro', object: 'model', owned_by: 'google' },
     { id: 'gemini-3-flash-preview', object: 'model', owned_by: 'google' },
+    { id: 'canvas-gemini-flash', object: 'model', owned_by: 'canvas-bridge' },
+    { id: 'canvas-gemini-pro', object: 'model', owned_by: 'canvas-bridge' },
     { id: 'ngrok-gemini-flash', object: 'model', owned_by: 'canvas-bridge' },
     { id: 'ngrok-gemini-pro', object: 'model', owned_by: 'canvas-bridge' },
   ];
