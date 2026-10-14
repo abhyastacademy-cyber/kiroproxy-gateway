@@ -268,7 +268,9 @@ class ConfigManager {
       `OTO_MODE="${this.config.otoMode}"`,
       this.config.geminiApiKey ? `GEMINI_API_KEY="${this.config.geminiApiKey}"` : `# GEMINI_API_KEY=""`,
       this.config.kiloApiKey ? `KILO_API_KEY="${this.config.kiloApiKey}"` : `# KILO_API_KEY=""`,
+      this.config.clineApiKey ? `CLINE_API_KEY="${this.config.clineApiKey}"` : `# CLINE_API_KEY=""`,
       this.config.openrouterApiKey ? `OPENROUTER_API_KEY="${this.config.openrouterApiKey}"` : `# OPENROUTER_API_KEY=""`,
+      this.config.orcarouterApiKey ? `ORCAROUTER_API_KEY="${this.config.orcarouterApiKey}"` : `# ORCAROUTER_API_KEY=""`,
     ].join('\n');
   }
 }

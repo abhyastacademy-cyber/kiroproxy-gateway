@@ -231,6 +231,25 @@ async function startServer() {
   // Optimize HTTP keep-alive for Cloud Run & reverse proxies (prevents TCP teardown overhead)
   server.keepAliveTimeout = 65000;
   server.headersTimeout = 66000;
+
+  // Graceful shutdown handling for Cloud Run & container orchestration
+  const shutdown = (signal: string) => {
+    console.log(`[Server] Received ${signal}. Draining active connections...`);
+    server.close(async () => {
+      console.log('[Server] HTTP server closed gracefully.');
+      await ngrokService.stopTunnel();
+      process.exit(0);
+    });
+
+    // Hard exit timeout after 10s if connections refuse to drain
+    setTimeout(() => {
+      console.warn('[Server] Forcing shutdown after drain timeout.');
+      process.exit(0);
+    }, 10000).unref();
+  };
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
 startServer().catch((err) => {

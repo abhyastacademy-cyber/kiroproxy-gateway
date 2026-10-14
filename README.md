@@ -2,19 +2,62 @@
 <img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
 </div>
 
-# Run and deploy your AI Studio app
+# KiroProxy Gateway Cloud (v2.8.0-cloud)
 
-This contains everything you need to run your app locally.
+High-performance, zero-cost proxy gateway for **Kiro IDE**. Hosted on Google Cloud Run and Google AI Studio, KiroProxy transparently intercepts AWS Bedrock binary EventStream requests (`/generateAssistantResponse`) and routes them across a 7-tier resilient waterfall (`kilo -> cline -> openrouter -> orcarouter -> gemini -> custom -> canvas`), returning responses encoded in IEEE 802.3 CRC32-framed binary EventStream buffers.
 
-View your app in AI Studio: https://ai.studio/apps/c2f31234-ba74-41e6-958a-128d08da7607
+---
 
-## Run Locally
+## Key Features
 
-**Prerequisites:**  Node.js
+- **7-Tier Resilient Waterfall**: Automatic failover across Kilo, Cline, OpenRouter, OrcaRouter, Google Gemini, Custom OpenAI-compatible endpoints, and Gemini Canvas Bridge.
+- **Three Non-Stop Access Archetypes**:
+  1. `global-automode`: Full cross-provider and cross-model cascade.
+  2. Provider-specific otomodes (`openrouter-otomode`, `kilo-otomode`, etc.): Intra-provider model cascade with key rotation.
+  3. Specific model targeting: Cascades that exact model across all providers supplying it, **accumulating combined free quota limits**.
+- **Free AI Tier Calculator**: Visualizes aggregated free limits, monthly token budgets, and multi-key concurrency headroom in the Web UI.
+- **AWS Bedrock EventStream Encoding**: Real-time IEEE 802.3 CRC32-framed binary chunk streaming for native Kiro IDE desktop extension compatibility.
+- **Dual-Mode Discovery**: Supports both Smithy (`/listAvailableModels`) and OpenAI (`/v1/models`) discovery formats.
+- **Cloud Run Native**: Zero dependency on local tunneling tools; native HTTPS ingress with `/tmp` filesystem write fallbacks.
 
+---
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Quick Start
+
+### 1. Run Locally
+```bash
+npm install
+npm run dev
+```
+Access the dashboard at `http://localhost:3000`.
+
+### 2. Connect Kiro IDE
+1. Open the gateway dashboard and navigate to the **Patcher** tab.
+2. Run the provided one-line patch script to redirect Kiro IDE's `extension.js` to your gateway endpoint.
+3. Reload Kiro IDE.
+
+### 3. Build & Test
+```bash
+# Typecheck
+npm run lint
+
+# Production bundle
+npm run build
+```
+
+---
+
+## Documentation Index
+
+Refer to the complete architectural manuals in `/docs`:
+- [`docs/system-map.md`](docs/system-map.md): High-level topology and module breakdown.
+- [`docs/change-impact.md`](docs/change-impact.md): Blast radius and coupled component matrix.
+- [`docs/invariants-and-gotchas.md`](docs/invariants-and-gotchas.md): Unbreakable system laws and traps.
+- [`docs/troubleshooting.md`](docs/troubleshooting.md): Operational diagnosis and error resolutions.
+- [`docs/data-model.md`](docs/data-model.md): Configuration schema and catalog entities.
+- [`docs/api-contracts.md`](docs/api-contracts.md): Wire protocol and endpoint specifications.
+- [`docs/config-and-env.md`](docs/config-and-env.md): Environment variables and security rules.
+- [`docs/testing.md`](docs/testing.md): Verification procedures and test workflows.
+- [`docs/tech-debt.md`](docs/tech-debt.md): Scaling limits and refactoring backlog.
+- [`docs/open-questions.md`](docs/open-questions.md): Tracked technical inquiries.
+
