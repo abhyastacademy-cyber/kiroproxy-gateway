@@ -8,10 +8,17 @@ dotenv.config();
 
 import { configManager } from './src/backend/config/index.js';
 import { healthManager } from './src/backend/resilience/health.js';
+import { circuitBreakers } from './src/backend/resilience/circuit_breaker.js';
+import { installGlobalAutomodeInterceptor } from './src/backend/resilience/global_automode_interceptor.js';
+
+installGlobalAutomodeInterceptor();
 import { handleGenerateAssistantResponse, validateAdminAuth } from './src/backend/handlers/bedrock_handler.js';
-import { handleChatCompletions, handleModels } from './src/backend/handlers/openai_handler.js';
+import { handleChatCompletions, handleModels, whgwListModels } from './src/backend/handlers/openai_handler.js';
 import { handlePoll, handleChunk, handleDone, handleCanvasStatus, setCorsHeaders } from './src/backend/handlers/canvas_handler.js';
 import { providerManager } from './src/backend/providers/provider_manager.js';
+import { ngrokService } from './src/backend/resilience/ngrok_service.js';
+
+import { syncFreeModelsFromProviders } from './src/backend/config/catalog.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -49,156 +56,44 @@ async function startServer() {
   app.post('/k/:token/generateAssistantResponse', handleGenerateAssistantResponse);
 
   // 3. Model Discovery Endpoints (Smithy /listAvailableModels & OpenAI /v1/models)
-  app.get(['/listAvailableModels', '/k/:token/listAvailableModels'], (req: Request, res: Response) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    const cfg = configManager.getConfig();
-    const models = [
-      {
-        modelId: 'global-automode',
-        modelName: 'Global Automode (6-Tier Waterfall)',
-        description: 'Auto-rotates across kilo -> cline -> openrouter -> orcarouter -> gemini -> custom',
-        rateMultiplier: 0,
-        rateUnit: 'credit',
-        supportedInputTypes: ['TEXT', 'IMAGE'],
-        tokenLimits: { maxInputTokens: 128000, maxOutputTokens: 16384 },
-        pricing: { prompt: '0', completion: '0', unit: 'credit' },
-      },
-      {
-        modelId: 'auto',
-        modelName: 'Kiro Default Auto (Waterfall)',
-        description: 'Direct fallback through full 6-tier cross-provider waterfall',
-        rateMultiplier: 0,
-        rateUnit: 'credit',
-        supportedInputTypes: ['TEXT', 'IMAGE'],
-        tokenLimits: { maxInputTokens: 128000, maxOutputTokens: 16384 },
-        pricing: { prompt: '0', completion: '0', unit: 'credit' },
-      },
-      {
-        modelId: 'kilo-otomode',
-        modelName: 'Kilo Otomode (Zero-Key Free Rotation)',
-        description: 'Rotates across 177+ free models on Kilo Gateway',
-        rateMultiplier: 0,
-        rateUnit: 'credit',
-        supportedInputTypes: ['TEXT', 'IMAGE'],
-        tokenLimits: { maxInputTokens: 128000, maxOutputTokens: 16384 },
-        pricing: { prompt: '0', completion: '0', unit: 'credit' },
-      },
-      {
-        modelId: 'openrouter-otomode',
-        modelName: 'OpenRouter Otomode (Free Model Rotation)',
-        description: 'Rotates through OpenRouter free tier models and API keys',
-        rateMultiplier: 0,
-        rateUnit: 'credit',
-        supportedInputTypes: ['TEXT', 'IMAGE'],
-        tokenLimits: { maxInputTokens: 128000, maxOutputTokens: 16384 },
-        pricing: { prompt: '0', completion: '0', unit: 'credit' },
-      },
-      {
-        modelId: 'cline-otomode',
-        modelName: 'Cline Otomode (Intra-Provider Rotation)',
-        description: 'Rotates through Cline free models and keys',
-        rateMultiplier: 0,
-        rateUnit: 'credit',
-        supportedInputTypes: ['TEXT', 'IMAGE'],
-        tokenLimits: { maxInputTokens: 128000, maxOutputTokens: 16384 },
-        pricing: { prompt: '0', completion: '0', unit: 'credit' },
-      },
-      {
-        modelId: 'orcarouter-otomode',
-        modelName: 'OrcaRouter Otomode (Free Model Rotation)',
-        description: 'Rotates through OrcaRouter models',
-        rateMultiplier: 0,
-        rateUnit: 'credit',
-        supportedInputTypes: ['TEXT', 'IMAGE'],
-        tokenLimits: { maxInputTokens: 128000, maxOutputTokens: 16384 },
-        pricing: { prompt: '0', completion: '0', unit: 'credit' },
-      },
-      {
-        modelId: 'gemini-otomode',
-        modelName: 'Gemini Otomode (Multi-Model & Key Rotation)',
-        description: 'Rotates across Gemini 3.8/2.5/2.0 models and API keys',
-        rateMultiplier: 0,
-        rateUnit: 'credit',
-        supportedInputTypes: ['TEXT', 'IMAGE'],
-        tokenLimits: { maxInputTokens: 128000, maxOutputTokens: 16384 },
-        pricing: { prompt: '0', completion: '0', unit: 'credit' },
-      },
-      {
-        modelId: 'gemini-3.8-flash',
-        modelName: 'Google Gemini 3.8 Flash',
-        description: 'Cloud Gateway Active Primary Model',
-        rateMultiplier: 0,
-        rateUnit: 'credit',
-        supportedInputTypes: ['TEXT', 'IMAGE'],
-        tokenLimits: { maxInputTokens: 128000, maxOutputTokens: 16384 },
-        pricing: { prompt: '0', completion: '0', unit: 'credit' },
-      },
-      {
-        modelId: 'gemini-2.5-pro',
-        modelName: 'Google Gemini 2.5 Pro (Deep Reasoning)',
-        description: 'Cloud Gateway Advanced Model',
-        rateMultiplier: 0,
-        rateUnit: 'credit',
-        supportedInputTypes: ['TEXT', 'IMAGE'],
-        tokenLimits: { maxInputTokens: 128000, maxOutputTokens: 16384 },
-        pricing: { prompt: '0', completion: '0', unit: 'credit' },
-      },
-      {
-        modelId: 'canvas-gemini-flash',
-        modelName: 'Gemini Canvas Cloud Bridge (Zero Cost)',
-        description: 'Native Cloud HTTPS reverse-polling bridge model (no ngrok required)',
-        rateMultiplier: 0,
-        rateUnit: 'credit',
-        supportedInputTypes: ['TEXT', 'IMAGE'],
-        tokenLimits: { maxInputTokens: 128000, maxOutputTokens: 16384 },
-        pricing: { prompt: '0', completion: '0', unit: 'credit' },
-      },
-      {
-        modelId: 'ngrok-gemini-flash',
-        modelName: 'Gemini Canvas Bridge (Legacy Alias)',
-        description: 'Reverse-polling bridge model',
-        rateMultiplier: 0,
-        rateUnit: 'credit',
-        supportedInputTypes: ['TEXT', 'IMAGE'],
-        tokenLimits: { maxInputTokens: 128000, maxOutputTokens: 16384 },
-        pricing: { prompt: '0', completion: '0', unit: 'credit' },
-      },
-    ];
-
-    for (const cp of cfg.customProviders) {
-      if (cp.enabled && cp.activeModel) {
-        models.push({
-          modelId: cp.activeModel,
-          modelName: `${cp.name} (${cp.activeModel})`,
-          description: cp.notes || 'Custom Provider Model',
-          rateMultiplier: 0,
-          rateUnit: 'credit',
-          supportedInputTypes: ['TEXT', 'IMAGE'],
-          tokenLimits: { maxInputTokens: 128000, maxOutputTokens: 16384 },
-          pricing: { prompt: '0', completion: '0', unit: 'credit' },
-        });
-      }
-    }
-
-    res.json({
-      models,
-      defaultModel: {
-        modelId: 'global-automode',
-        modelName: 'Global Automode (6-Tier Waterfall)',
-      },
-    });
-  });
-
-  app.get('/v1/models', handleModels);
-  app.get('/k/:token/v1/models', handleModels);
+  app.get(['/listAvailableModels', '/k/:token/listAvailableModels'], whgwListModels);
+  app.get(['/v1/models', '/k/:token/v1/models'], whgwListModels);
   app.post('/v1/chat/completions', handleChatCompletions);
   app.post('/k/:token/v1/chat/completions', handleChatCompletions);
+
+  // Live model catalog refresh across all providers
+  app.post(['/api/models/refresh', '/api/models/sync'], async (_req: Request, res: Response) => {
+    try {
+      const result = await syncFreeModelsFromProviders();
+      res.json({
+        success: true,
+        message: `Synced ${result.count} live free models from providers. Total catalog: ${result.total} models.`,
+        data: result,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
 
   // 4. Gemini Canvas Sandboxed Reverse-Polling Bridge
   app.get('/poll', handlePoll);
   app.post('/chunk', handleChunk);
   app.post('/done', handleDone);
   app.get('/api/canvas/status', handleCanvasStatus);
+
+  // Operations & Resilience APIs
+  app.post('/api/circuit/reset', (_req: Request, res: Response) => {
+    circuitBreakers.resetAll();
+    res.json({ success: true, message: 'All circuit breakers reset to CLOSED' });
+  });
+
+  app.post('/api/health/refresh', (_req: Request, res: Response) => {
+    res.json({ success: true, message: 'Health telemetry refreshed' });
+  });
+
+  app.get('/metrics', (req: Request, res: Response) => {
+    res.json(healthManager.getStatusData(req.get('host'), req.protocol));
+  });
 
   // 5. Config Management API
   app.get('/api/config', (req: Request, res: Response) => {
@@ -314,8 +209,10 @@ async function startServer() {
   const HOST = process.env.HOST || '0.0.0.0';
   const PORT = Number(process.env.PORT) || 3000;
 
-  app.listen(PORT, HOST, () => {
-    const detectedUrl = healthManager.getTunnelUrl();
+  app.listen(PORT, HOST, async () => {
+    // Initialize ngrok tunnel if token is configured
+    const ngrokUrl = await ngrokService.startTunnel();
+    const detectedUrl = ngrokUrl || healthManager.getTunnelUrl();
     console.log(`=======================================================`);
     console.log(`🚀 KiroProxy Cloud Gateway is live!`);
     console.log(`📡 Listening on: http://${HOST}:${PORT}`);
@@ -323,6 +220,9 @@ async function startServer() {
     console.log(`⚡ AWS Bedrock: POST ${detectedUrl || `http://${HOST}:${PORT}`}/generateAssistantResponse`);
     console.log(`🔌 OpenAI /v1:  POST ${detectedUrl || `http://${HOST}:${PORT}`}/v1/chat/completions`);
     console.log(`🖼️ Canvas Poll:  GET  ${detectedUrl || `http://${HOST}:${PORT}`}/poll`);
+    if (ngrokUrl) {
+      console.log(`🔒 Ngrok Tunnel: ${ngrokUrl}`);
+    }
     console.log(`=======================================================`);
   });
 }

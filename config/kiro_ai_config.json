@@ -1,20 +1,8 @@
 {
-  "provider": "auto",
-  "mode": "proxy",
-  "model": "global-automode",
-  "apiKey": "",
-  "rateMultiplier": 0.0,
-  "temperature": 0.7,
-  "maxTokens": 4096,
-  "kiloApiKey": "",
-  "clineApiKey": "",
-  "openrouterApiKey": "",
-  "orcarouterApiKey": "",
-  "geminiApiKey": "",
-  "enableNgrokTunnel": false,
-  "ngrokAuthtoken": "",
-  "baseUrl": "https://openrouter.ai/api/v1",
-  "timeoutMs": 120000,
+  "host": "0.0.0.0",
+  "port": 3000,
+  "publicDomainUrl": "https://ais-dev-vmz6rsevgimvknb6mnpxvs-585423051125.asia-southeast1.run.app",
+  "adminToken": "",
   "providerPriorityOrder": [
     "kilo",
     "cline",
@@ -24,6 +12,102 @@
     "custom",
     "canvas"
   ],
+  "customProviders": [
+    {
+      "id": "groq",
+      "name": "Groq",
+      "baseUrl": "https://api.groq.com/openai/v1",
+      "baseUrls": [
+        "https://api.groq.com/openai/v1"
+      ],
+      "apiKey": "",
+      "apiKeys": [],
+      "defaultModel": "openai/gpt-oss-120b",
+      "activeModel": "openai/gpt-oss-120b",
+      "priority": "high",
+      "autoPopulate": true,
+      "freeOnly": true,
+      "enabled": true,
+      "notes": "Priority: high",
+      "modelMapping": {
+        "llama-3.3-70b-versatile": "openai/gpt-oss-120b",
+        "llama-3.1-8b-instant": "openai/gpt-oss-20b",
+        "auto": "openai/gpt-oss-120b",
+        "global-automode": "openai/gpt-oss-120b"
+      }
+    },
+    {
+      "id": "glm",
+      "name": "GLM",
+      "baseUrl": "https://devgateway.space-z.ai/api/v1",
+      "baseUrls": [
+        "https://devgateway.space-z.ai/api/v1"
+      ],
+      "apiKey": "sk-devgw-master-key",
+      "apiKeys": [
+        "sk-devgw-master-key"
+      ],
+      "defaultModel": "glm-5.3-flash",
+      "activeModel": "glm-5.3-flash",
+      "priority": "high",
+      "autoPopulate": true,
+      "freeOnly": true,
+      "enabled": true,
+      "notes": "Priority: high",
+      "modelMapping": {
+        "glm-4-flash": "glm-5.3-flash",
+        "glm-4-plus": "glm-5.3",
+        "auto": "glm-5.3-flash",
+        "global-automode": "glm-5.3-flash"
+      }
+    },
+    {
+      "id": "abhyast-gemini",
+      "name": "Abhyast-Gemini",
+      "baseUrl": "https://corset-decipher-vocation.ngrok-free.dev/api/v1",
+      "baseUrls": [
+        "https://corset-decipher-vocation.ngrok-free.dev/api/v1"
+      ],
+      "apiKey": "sk-devgw-master-key",
+      "apiKeys": [
+        "sk-devgw-master-key"
+      ],
+      "defaultModel": "gemini-3.8-flash",
+      "activeModel": "gemini-3.8-flash",
+      "priority": "high",
+      "autoPopulate": true,
+      "freeOnly": true,
+      "enabled": true,
+      "notes": "Priority: high"
+    }
+  ],
+  "activeDefaultModel": "gemini-2.5-flash",
+  "temperature": 0.7,
+  "maxTokens": 4096,
+  "enableNgrokTunnel": false,
+  "ngrokAuthToken": "",
+  "geminiApiKey": "",
+  "geminiApiKeys": [],
+  "kiloApiKey": "",
+  "kiloApiKeys": [],
+  "clineApiKey": "",
+  "clineApiKeys": [],
+  "openrouterApiKey": "",
+  "openrouterApiKeys": [],
+  "orcarouterApiKey": "",
+  "orcarouterApiKeys": [],
+  "globalAutoMode": true,
+  "otoMode": true,
+  "maxAutoSteps": 25,
+  "autoApproveTools": true,
+  "provider": "auto",
+  "mode": "proxy",
+  "model": "global-automode",
+  "apiKey": "",
+  "rateMultiplier": 0,
+  "ngrokAuthtoken": "",
+  "baseUrl": "https://openrouter.ai/api/v1",
+  "timeoutMs": 120000,
   "providers": {
     "kilo": {
       "enabled": true,
@@ -55,54 +139,21 @@
     "autoStart": false,
     "chromeExecutablePath": ""
   },
-  "customProviders": [
-    {
-      "id": "groq",
-      "name": "Groq",
-      "baseUrl": "https://api.groq.com/openai/v1",
-      "baseUrls": [
-        "https://api.groq.com/openai/v1"
-      ],
-      "apiKey": "",
-      "apiKeys": [],
-      "defaultModel": "llama-3.3-70b-versatile",
-      "activeModel": "llama-3.3-70b-versatile",
-      "priority": "high",
-      "autoPopulate": true,
-      "freeOnly": true,
-      "enabled": true
-    },
-    {
-      "id": "openrouter",
-      "name": "OpenRouter",
-      "baseUrl": "https://openrouter.ai/api/v1",
-      "baseUrls": [
-        "https://openrouter.ai/api/v1"
-      ],
-      "apiKey": "",
-      "apiKeys": [],
-      "defaultModel": "meta-llama/llama-3.3-70b-instruct:free",
-      "activeModel": "meta-llama/llama-3.3-70b-instruct:free",
-      "priority": "high",
-      "autoPopulate": true,
-      "freeOnly": true,
-      "enabled": true
-    },
-    {
-      "id": "gemini-direct",
-      "name": "Gemini-Direct",
-      "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai",
-      "baseUrls": [
-        "https://generativelanguage.googleapis.com/v1beta/openai"
-      ],
-      "apiKey": "",
-      "apiKeys": [],
-      "defaultModel": "gemini-3.8-flash",
-      "activeModel": "gemini-3.8-flash",
-      "priority": "high",
-      "autoPopulate": true,
-      "freeOnly": true,
-      "enabled": true
-    }
-  ]
+  "providerBaseUrls": {
+    "kilo": [
+      "https://api.kilo.ai/api/gateway"
+    ],
+    "cline": [
+      "https://api.cline.bot/api/v1"
+    ],
+    "openrouter": [
+      "https://openrouter.ai/api/v1"
+    ],
+    "orcarouter": [
+      "https://api.orcarouter.ai/v1"
+    ],
+    "gemini": [
+      "https://generativelanguage.googleapis.com/v1beta"
+    ]
+  }
 }
