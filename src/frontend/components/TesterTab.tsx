@@ -37,45 +37,79 @@ export const TesterTab: React.FC<TesterTabProps> = ({ config, adminToken, initia
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data.data)) {
-          setLoadedModels(
-            data.data.map((m: any) => ({
-              id: m.id,
-              label: m.name ? `${m.id} (${m.name})` : m.id,
-            }))
-          );
+          const seen = new Set<string>();
+          const unique: { id: string; label: string }[] = [];
+          for (const m of data.data) {
+            if (m && m.id && !seen.has(m.id)) {
+              seen.add(m.id);
+              unique.push({
+                id: m.id,
+                label: m.name ? `${m.id} (${m.name})` : m.id,
+              });
+            }
+          }
+          setLoadedModels(unique);
         }
       })
       .catch(() => {});
   }, []);
 
-  const fallbackModels = [
-    { id: 'global-automode', label: 'global-automode (Cross-Provider 7-Tier Cascade)' },
-    { id: 'auto', label: 'auto (Kiro IDE Auto Waterfall)' },
-    { id: 'deepseek/deepseek-r1:free', label: 'deepseek/deepseek-r1:free (DeepSeek R1 Full Reasoning)' },
-    { id: 'deepseek/deepseek-chat:free', label: 'deepseek/deepseek-chat:free (DeepSeek V3 671B MoE)' },
-    { id: 'meta-llama/llama-3.3-70b-instruct:free', label: 'meta-llama/llama-3.3-70b-instruct:free (Llama 3.3 70B)' },
-    { id: 'qwen/qwen-2.5-72b-instruct:free', label: 'qwen/qwen-2.5-72b-instruct:free (Qwen 2.5 72B)' },
-    { id: 'qwen/qwen-2.5-coder-32b-instruct:free', label: 'qwen/qwen-2.5-coder-32b-instruct:free (Qwen Coder 32B)' },
-    { id: 'kilo-auto/free', label: 'kilo-auto/free (Zero-Key Kilo Verified Gateway)' },
-    { id: 'kilo-otomode', label: 'kilo-otomode (Kilo 177+ Free Models Rotation)' },
-    { id: 'openrouter/auto', label: 'openrouter/auto (OpenRouter Zero-Cost Router)' },
-    { id: 'openrouter-otomode', label: 'openrouter-otomode (OpenRouter Multi-Model Rotation)' },
-    { id: 'cline-otomode', label: 'cline-otomode (Cline Autonomous Coding Pool)' },
-    { id: 'orcarouter-otomode', label: 'orcarouter-otomode (OrcaRouter Free Inference Gateway)' },
-    { id: 'gemini-otomode', label: 'gemini-otomode (Gemini Direct Key Rotation)' },
-    { id: 'gemini-flash-latest', label: 'Google Gemini Flash Latest' },
-    { id: 'gemini-3.8-flash', label: 'Google Gemini 3.8 Flash' },
-    { id: 'gemini-4-argon', label: 'Google Gemini 4 Argon (Reasoning)' },
-    { id: 'gemini-2.5-flash', label: 'Google Gemini 2.5 Flash' },
-    { id: 'gemini-2.5-pro', label: 'Google Gemini 2.5 Pro' },
-    { id: 'canvas-gemini-flash', label: 'canvas-gemini-flash (Gemini Canvas Cloud Bridge)' },
-    ...(config?.customProviders.map((cp) => ({
-      id: cp.activeModel || cp.id,
-      label: `${cp.name} (${cp.activeModel || 'Custom Endpoint'})`,
-    })) || []),
-  ];
+  const fallbackModels = React.useMemo(() => {
+    const staticList = [
+      { id: 'global-automode', label: 'global-automode (Cross-Provider 7-Tier Cascade)' },
+      { id: 'auto', label: 'auto (Kiro IDE Auto Waterfall)' },
+      { id: 'deepseek/deepseek-r1:free', label: 'deepseek/deepseek-r1:free (DeepSeek R1 Full Reasoning)' },
+      { id: 'deepseek/deepseek-chat:free', label: 'deepseek/deepseek-chat:free (DeepSeek V3 671B MoE)' },
+      { id: 'meta-llama/llama-3.3-70b-instruct:free', label: 'meta-llama/llama-3.3-70b-instruct:free (Llama 3.3 70B)' },
+      { id: 'qwen/qwen-2.5-72b-instruct:free', label: 'qwen/qwen-2.5-72b-instruct:free (Qwen 2.5 72B)' },
+      { id: 'qwen/qwen-2.5-coder-32b-instruct:free', label: 'qwen/qwen-2.5-coder-32b-instruct:free (Qwen Coder 32B)' },
+      { id: 'kilo-auto/free', label: 'kilo-auto/free (Zero-Key Kilo Verified Gateway)' },
+      { id: 'kilo-otomode', label: 'kilo-otomode (Kilo 177+ Free Models Rotation)' },
+      { id: 'openrouter/auto', label: 'openrouter/auto (OpenRouter Zero-Cost Router)' },
+      { id: 'openrouter-otomode', label: 'openrouter-otomode (OpenRouter Multi-Model Rotation)' },
+      { id: 'cline-otomode', label: 'cline-otomode (Cline Autonomous Coding Pool)' },
+      { id: 'orcarouter-otomode', label: 'orcarouter-otomode (OrcaRouter Free Inference Gateway)' },
+      { id: 'gemini-otomode', label: 'gemini-otomode (Gemini Direct Key Rotation)' },
+      { id: 'gemini-flash-latest', label: 'Google Gemini Flash Latest' },
+      { id: 'gemini-3.8-flash', label: 'Google Gemini 3.8 Flash' },
+      { id: 'gemini-4-argon', label: 'Google Gemini 4 Argon (Reasoning)' },
+      { id: 'gemini-2.5-flash', label: 'Google Gemini 2.5 Flash' },
+      { id: 'gemini-2.5-pro', label: 'Google Gemini 2.5 Pro' },
+      { id: 'canvas-gemini-flash', label: 'canvas-gemini-flash (Gemini Canvas Cloud Bridge)' },
+    ];
 
-  const availableModels = loadedModels.length > 0 ? loadedModels : fallbackModels;
+    const modelMap = new Map<string, { id: string; label: string }>();
+    for (const m of staticList) {
+      modelMap.set(m.id, m);
+    }
+
+    if (Array.isArray(config?.customProviders)) {
+      for (const cp of config.customProviders) {
+        const id = cp.activeModel || cp.id;
+        if (id && !modelMap.has(id)) {
+          modelMap.set(id, {
+            id,
+            label: `${cp.name} (${id})`,
+          });
+        }
+      }
+    }
+
+    return Array.from(modelMap.values());
+  }, [config?.customProviders]);
+
+  const availableModels = React.useMemo(() => {
+    const rawList = loadedModels.length > 0 ? loadedModels : fallbackModels;
+    const seen = new Set<string>();
+    const unique: { id: string; label: string }[] = [];
+    for (const m of rawList) {
+      if (m && m.id && !seen.has(m.id)) {
+        seen.add(m.id);
+        unique.push(m);
+      }
+    }
+    return unique;
+  }, [loadedModels, fallbackModels]);
 
   const handleTest = async () => {
     if (!prompt.trim() || isLoading) return;
@@ -183,8 +217,8 @@ export const TesterTab: React.FC<TesterTabProps> = ({ config, adminToken, initia
               onChange={(e) => setModel(e.target.value)}
               className="w-full bg-[#09090b] border border-[#27272a] rounded-lg px-3 py-2 text-xs text-[#fafafa] focus:outline-none focus:border-[#fafafa]"
             >
-              {availableModels.map((m) => (
-                <option key={m.id} value={m.id}>
+              {availableModels.map((m, idx) => (
+                <option key={`${m.id}-${idx}`} value={m.id}>
                   {m.label}
                 </option>
               ))}

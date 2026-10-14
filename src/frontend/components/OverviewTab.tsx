@@ -279,7 +279,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
             return (
               <div
-                key={tier}
+                key={`${tier}-${idx}`}
                 className={`p-3 rounded-xl border flex flex-col justify-between space-y-2 transition-all ${
                   isTripped
                     ? 'bg-rose-950/20 border-rose-500/40 text-rose-300'
@@ -337,7 +337,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {priorityList.map((tier) => {
+          {priorityList.map((tier, idx) => {
             const cb = circuitBreakers[tier];
             const state = cb?.state || 'CLOSED';
             const failures = cb?.consecutiveFailures || 0;
@@ -345,7 +345,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
             return (
               <div
-                key={tier}
+                key={`${tier}-${idx}`}
                 className="p-4 rounded-xl bg-[#141417] border border-[#27272a] flex items-center justify-between gap-3 text-xs"
               >
                 <div>

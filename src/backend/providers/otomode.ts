@@ -4,22 +4,20 @@ import type { ChatMessage } from './gemini_provider.js';
 // Top free models catalog for Kilo, OpenRouter, Cline, OrcaRouter, and Gemini otomode rotation
 export const KILO_FREE_MODELS = [
   'kilo-auto/free',
-  'kilo-free',
   'deepseek/deepseek-r1:free',
   'deepseek/deepseek-chat:free',
   'meta-llama/llama-3.3-70b-instruct:free',
-  'qwen/qwen-2.5-72b-instruct:free',
   'qwen/qwen-2.5-coder-32b-instruct:free',
   'mistralai/mistral-small-24b-instruct-2501:free',
+  'microsoft/phi-4:free',
+  'cognitivecomputations/dolphin3.0-r1-mistral-24b:free',
+  'nousresearch/hermes-3-llama-3.1-405b:free',
   'google/gemini-2.0-flash-exp:free',
-  'deepseek/deepseek-r1-distill-llama-70b:free',
-  'deepseek/deepseek-r1-distill-qwen-32b:free',
+  'qwen/qwen-2.5-72b-instruct:free',
   'meta-llama/llama-3.2-11b-vision-instruct:free',
   'meta-llama/llama-3.1-8b-instruct:free',
   'qwen/qwq-32b-preview:free',
-  'microsoft/phi-4:free',
-  'nousresearch/hermes-3-llama-3.1-405b:free',
-  'cognitivecomputations/dolphin3.0-r1-mistral-24b:free',
+  'kilo-free',
 ];
 
 export const OPENROUTER_FREE_MODELS = [
@@ -186,10 +184,15 @@ export async function runProviderOtomode(
   // For HTTP/SSE providers (kilo, openrouter, cline, orcarouter):
   let lastError: Error | null = null;
   const hasRealKey = candidateApiKeys.some((k) => k && k.trim().length > 0);
+  
+  // When a specific target model is requested, ONLY attempt that specific model in this tier
+  // so the waterfall can quickly advance to the next tier if this provider cannot serve it.
   const modelsToTry = options.targetModel
-    ? [options.targetModel, ...candidateModels.filter((m) => m !== options.targetModel).slice(0, 3)]
-    : (hasRealKey ? candidateModels : candidateModels.slice(0, 3));
-  const timeoutMs = options.targetModel ? 8000 : (hasRealKey ? 10000 : 3500);
+    ? [options.targetModel]
+    : (hasRealKey ? candidateModels : candidateModels.slice(0, 5));
+  
+  // Responsive timeout: 4500ms max per attempt to prevent blocking Kiro IDE
+  const timeoutMs = options.targetModel ? 4500 : (hasRealKey ? 6500 : 3000);
 
   for (const baseUrl of candidateBaseUrls) {
     let baseUrlFailed = false;
@@ -208,6 +211,7 @@ export async function runProviderOtomode(
           const headers: Record<string, string> = {
             'Content-Type': 'application/json',
             'Accept': 'text/event-stream, application/json',
+            'Connection': 'keep-alive',
             'HTTP-Referer': 'https://kiroproxy.ai.studio',
             'X-Title': 'KiroProxy Cloud Gateway v2.8.0',
           };
@@ -234,9 +238,13 @@ export async function runProviderOtomode(
 
             if (!resp.ok) {
               const errBody = await resp.text().catch(() => '');
-              // If HTTP 404 on this model, continue to next model; if 401/403/host down, skip baseUrl
+              // If HTTP 401/403/500/502/503/504, baseUrl is offline or key invalid -> abort baseUrl
               if (resp.status === 401 || resp.status === 403 || resp.status >= 500) {
                 baseUrlFailed = true;
+              }
+              // If HTTP 429 (Rate Limit), this key/tier is quota-exhausted -> skip to next key or tier
+              if (resp.status === 429) {
+                throw new Error(`HTTP 429: Rate limit exceeded on ${otomode} (${model})`);
               }
               throw new Error(`HTTP ${resp.status}: ${errBody.substring(0, 100)}`);
             }
@@ -287,9 +295,14 @@ export async function runProviderOtomode(
           if (
             err.name === 'AbortError' ||
             err.message.includes('fetch failed') ||
-            err.message.includes('ECONNREFUSED')
+            err.message.includes('ECONNREFUSED') ||
+            err.message.includes('ETIMEDOUT')
           ) {
             baseUrlFailed = true;
+            break;
+          }
+          // On rate limit (429) when targetModel is set, break out of model loop immediately
+          if (err.message.includes('429')) {
             break;
           }
         }

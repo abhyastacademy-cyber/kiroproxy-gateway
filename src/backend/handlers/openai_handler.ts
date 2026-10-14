@@ -11,6 +11,7 @@ import { getCompleteModelCatalog } from '../config/catalog.js';
  */
 export async function whgwListModels(req: Request, res: Response) {
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Cache-Control', 'public, max-age=5, stale-while-revalidate=30');
   const config = configManager.getConfig();
   const catalog = getCompleteModelCatalog(config);
 

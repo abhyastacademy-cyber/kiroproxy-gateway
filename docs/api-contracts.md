@@ -52,7 +52,8 @@ Authentication is handled by `validateAdminAuth()` in [`src/backend/handlers/bed
 ### 2. `GET /listAvailableModels` (and `/k/:token/listAvailableModels`)
 * **Consumer**: Kiro IDE extension patch v5.1 (`whgwListModels`).
 * **Auth**: Public or token-gated.
-* **Auto-Populated Catalog**: Returns 60+ to 80+ zero-cost free models auto-populated from Kilo, OpenRouter, Cline, OrcaRouter, Gemini, and Canvas Bridge.
+* **Auto-Populated Catalog**: Returns 80+ zero-cost free models auto-populated from Kilo, OpenRouter, Cline, OrcaRouter, Gemini, and Canvas Bridge.
+* **Performance**: Sub-millisecond response time backed by an in-memory cache and `Cache-Control: public, max-age=5, stale-while-revalidate=30`.
 * **Response Shape (Smithy Format)**:
   ```json
   {
@@ -96,7 +97,8 @@ Authentication is handled by `validateAdminAuth()` in [`src/backend/handlers/bed
 
 ### 3b. `POST /api/models/refresh` (and `/api/models/sync`)
 * **Consumer**: Web GUI (`ModelsTab.tsx`) and automation scripts.
-* **Function**: Triggers a live background sync to fetch newly released free tier models from OpenRouter public API and upstream providers.
+* **Function**: Triggers a live background sync to fetch newly released free tier models from OpenRouter public API, upstream providers, and any configured Custom Providers (`baseUrls` + `apiKeys`) with `autoPopulate !== false`.
+* **Accumulated Free Limits**: Multiple providers offering the same zero-cost model (e.g. DeepSeek R1, Llama 3.3, Qwen 2.5) accumulate independent rate limits and daily quotas. On HTTP 429 quota exhaustion on any tier, the gateway automatically cascades requests across tiers without session drops.
 * **Response Shape**:
   ```json
   {
@@ -139,3 +141,43 @@ Authentication is handled by `validateAdminAuth()` in [`src/backend/handlers/bed
 | `/api/export-env` | GET | Yes (if token set) | Exports settings as `.env` text | `{ envContent: "HOST=\"0.0.0.0\"..." }` |
 | `/api/test/generate` | POST | Yes (if token set) | Interactive test generation harness | SSE stream (`data: {"chunk":"..."}`) |
 | `/scripts/patch_kiro_extension.js` | GET | No | Direct client script download | Raw JavaScript file contents |
+
+---
+
+## 7. The Three Modes of Non-Stop AI Access & Accumulated Free Quota
+
+KiroProxy Gateway provides three distinct routing archetypes to achieve zero-downtime, zero-cost AI generation:
+
+### Archetype 1: Global Automode (`global-automode`)
+* **Behavior**: **Cross-Provider + Cross-Model Full Cascade**.
+* **Flow**:
+  ```text
+  kilo [m1 -> m2 -> m3...] 
+    ↳ cline [m1 -> m2 -> m3...] 
+      ↳ openrouter [m1 -> m2 -> m3...] 
+        ↳ orcarouter [m1 -> m2 -> m3...] 
+          ↳ gemini [flash -> argon -> lite...] 
+            ↳ custom providers [baseUrl1 -> baseUrl2 with key rotation] 
+              ↳ canvas bridge
+  ```
+* **Resilience**: If any model or provider returns HTTP 429, 502, or timeout, it cascades to the next candidate model and subsequently the next provider tier in the 7-tier order.
+
+### Archetype 2: Provider-Specific Otomode (`<provider>-otomode`)
+* **Behavior**: **Intra-Provider Model Cascade with Multi-Key Rotation**.
+* **Flow**: Locks to a single designated provider (e.g. `openrouter-otomode`, `kilo-otomode`, `cline-otomode`) and cascades through that provider's catalog of zero-cost models (`Model 1 -> Model 2 -> Model 3...`), rotating across all configured API keys for that provider.
+* **Resilience**: Protects against model-specific rate limits or context limitations while keeping requests within a preferred provider ecosystem.
+
+### Archetype 3: Specific Model Access (`<vendor>/<model>:free`)
+* **Behavior**: **Cross-Provider Quota Accumulation for the Exact Requested Model**.
+* **Flow**:
+  ```text
+  Target Model (e.g., deepseek/deepseek-r1:free)
+    ↳ Provider 1 (Tier 1) [API Key 1 -> Key 2]
+      ↳ [429 Quota Exhausted] ↳ Provider 2 (Tier 2) [API Key 1 -> Key 2]
+        ↳ [429 Quota Exhausted] ↳ Provider 3 (Tier 3)
+          ↳ [429 Quota Exhausted] ↳ Custom Provider (Matching endpoints)
+  ```
+* **Accumulated Free Limits (Multiplied Budget)**:
+  - Each upstream provider grants independent free quotas (e.g., 20 RPM / 200 RPD on OpenRouter, 20 RPM on OrcaRouter, free gateway tier on Kilo, plus custom endpoint limits).
+  - Because KiroProxy routes the identical target model across all providers in sequence upon rate limit encounters, the user effectively enjoys the **accumulated aggregate throughput and combined monthly token budget** of all providers combined without model substitution.
+

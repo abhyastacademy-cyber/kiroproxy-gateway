@@ -114,6 +114,8 @@ async function startServer() {
       return res.status(401).json({ error: 'Unauthorized: PROXY_ADMIN_TOKEN required' });
     }
     const updateResult = configManager.updateConfig(req.body);
+    // Background auto-population of models with newly added provider keys/endpoints
+    syncFreeModelsFromProviders().catch(() => {});
     res.json({
       success: updateResult.success,
       configPath: updateResult.path,
@@ -209,7 +211,7 @@ async function startServer() {
   const HOST = process.env.HOST || '0.0.0.0';
   const PORT = Number(process.env.PORT) || 3000;
 
-  app.listen(PORT, HOST, async () => {
+  const server = app.listen(PORT, HOST, async () => {
     // Initialize ngrok tunnel if token is configured
     const ngrokUrl = await ngrokService.startTunnel();
     const detectedUrl = ngrokUrl || healthManager.getTunnelUrl();
@@ -225,6 +227,10 @@ async function startServer() {
     }
     console.log(`=======================================================`);
   });
+
+  // Optimize HTTP keep-alive for Cloud Run & reverse proxies (prevents TCP teardown overhead)
+  server.keepAliveTimeout = 65000;
+  server.headersTimeout = 66000;
 }
 
 startServer().catch((err) => {

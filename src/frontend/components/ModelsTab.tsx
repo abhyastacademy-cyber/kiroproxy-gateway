@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Copy, Check, Play, Sparkles, RefreshCw, Zap, ShieldCheck, CheckCircle2, Globe } from 'lucide-react';
+import { FreeTierCalculator } from './FreeTierCalculator.js';
+import type { GatewayConfig } from '../types.js';
 
 export interface ModelItem {
   id: string;
@@ -10,9 +12,11 @@ export interface ModelItem {
 
 interface ModelsTabProps {
   onTestModel: (modelId: string) => void;
+  config?: GatewayConfig | null;
+  onNavigateTab?: (tab: string) => void;
 }
 
-export const ModelsTab: React.FC<ModelsTabProps> = ({ onTestModel }) => {
+export const ModelsTab: React.FC<ModelsTabProps> = ({ onTestModel, config, onNavigateTab }) => {
   const [models, setModels] = useState<ModelItem[]>([]);
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<string>('all');
@@ -27,7 +31,15 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({ onTestModel }) => {
       const res = await fetch('/v1/models');
       if (res.ok) {
         const data = await res.json();
-        setModels(data.data || []);
+        const seen = new Set<string>();
+        const uniqueModels: ModelItem[] = [];
+        for (const item of data.data || []) {
+          if (item?.id && !seen.has(item.id)) {
+            seen.add(item.id);
+            uniqueModels.push(item);
+          }
+        }
+        setModels(uniqueModels);
       }
     } catch (e) {
       console.warn('Failed to fetch models:', e);
@@ -106,6 +118,9 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({ onTestModel }) => {
 
   return (
     <div className="space-y-6">
+      {/* Free AI Tier & Accumulated Budget Calculator */}
+      <FreeTierCalculator config={config || null} onNavigateTab={onNavigateTab} />
+
       {/* Header section */}
       <div className="rounded-2xl bg-[#0f0f12] border border-[#27272a] p-6 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -146,6 +161,19 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({ onTestModel }) => {
             <span>{syncStatus}</span>
           </div>
         )}
+
+        {/* Accumulated Free AI Limits Banner */}
+        <div className="p-3.5 rounded-xl bg-gradient-to-r from-emerald-950/30 to-blue-950/20 border border-emerald-500/30 flex items-start gap-3">
+          <Zap className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+          <div className="text-xs space-y-1">
+            <span className="font-semibold text-emerald-200">
+              Accumulated Multi-Provider Free AI Quota Active
+            </span>
+            <p className="text-zinc-300 leading-relaxed text-[11px]">
+              When multiple providers offer the same zero-cost model (e.g. DeepSeek R1, Llama 3.3 70B, Qwen 2.5), rate limits and daily free quotas accumulate across Kilo, Cline, OpenRouter, OrcaRouter, and Custom Endpoints. On HTTP 429 quota exhaustion, the gateway transparently fails over to the next tier, multiplying total available daily tokens and request limits.
+            </p>
+          </div>
+        </div>
 
         {/* Filter bar */}
         <div className="flex flex-col gap-3 pt-2">
@@ -192,7 +220,7 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({ onTestModel }) => {
 
       {/* Model Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        {filteredModels.map((m) => {
+        {filteredModels.map((m, idx) => {
           const isCopied = copiedId === m.id;
           const isReasoning = m.id.includes('r1') || m.id.includes('qwq') || m.id.includes('thinking');
           const isCoder = m.id.includes('coder') || m.id.includes('codestral');
@@ -200,7 +228,7 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({ onTestModel }) => {
 
           return (
             <div
-              key={m.id}
+              key={`${m.id}-${idx}`}
               className="p-4 rounded-xl bg-[#0f0f12] border border-[#27272a] hover:border-[#3f3f46] flex flex-col justify-between space-y-3 transition-colors"
             >
               <div>

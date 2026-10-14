@@ -2,9 +2,12 @@ export interface CustomProvider {
   id: string;
   name: string;
   baseUrls: string[];
+  baseUrl?: string;
   apiKeys: string[];
+  apiKey?: string;
   modelMapping?: Record<string, string>;
   activeModel?: string;
+  defaultModel?: string;
   enabled: boolean;
   notes?: string;
 }

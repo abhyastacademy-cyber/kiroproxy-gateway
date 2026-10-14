@@ -1,4 +1,4 @@
-import type { KiroGatewayConfig } from './index.js';
+import { configManager, type KiroGatewayConfig } from './index.js';
 import {
   KILO_FREE_MODELS,
   OPENROUTER_FREE_MODELS,
@@ -867,71 +867,180 @@ function formatModelName(modelId: string): string {
  * Fetches the latest free models from OpenRouter public API (no key required)
  * and auto-populates dynamicFreeModels cache.
  */
-export async function syncFreeModelsFromProviders(): Promise<{ count: number; total: number }> {
+export async function syncFreeModelsFromProviders(cfg?: KiroGatewayConfig): Promise<{ count: number; total: number }> {
   if (isSyncing) {
     return { count: dynamicFreeModels.size, total: RICH_MODEL_CATALOG.length + dynamicFreeModels.size };
   }
   isSyncing = true;
+  const config = cfg || configManager.getConfig();
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000);
+    // 1. Fetch live free models from OpenRouter public API (authenticated if key present)
+    const orController = new AbortController();
+    const orTimeout = setTimeout(() => orController.abort(), 6000);
+    const orHeaders: Record<string, string> = {
+      'Accept': 'application/json',
+      'User-Agent': 'KiroProxy-Gateway/2.8.0',
+    };
+    if (config.openrouterApiKey) {
+      orHeaders['Authorization'] = `Bearer ${config.openrouterApiKey}`;
+    }
 
-    const resp = await fetch('https://openrouter.ai/api/v1/models', {
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'KiroProxy-Gateway/2.8.0',
-      },
-      signal: controller.signal,
-    }).finally(() => clearTimeout(timeout));
+    try {
+      const resp = await fetch('https://openrouter.ai/api/v1/models', {
+        headers: orHeaders,
+        signal: orController.signal,
+      }).finally(() => clearTimeout(orTimeout));
 
-    if (resp.ok) {
-      const data: any = await resp.json();
-      if (Array.isArray(data.data)) {
-        for (const item of data.data) {
-          const id = item.id || '';
-          const isFreeSlug = id.endsWith(':free');
-          const isZeroPricing =
-            (item.pricing?.prompt === '0' || item.pricing?.prompt === 0) &&
-            (item.pricing?.completion === '0' || item.pricing?.completion === 0);
+      if (resp.ok) {
+        const data: any = await resp.json();
+        if (Array.isArray(data.data)) {
+          for (const item of data.data) {
+            const id = item.id || '';
+            const isFreeSlug = id.endsWith(':free');
+            const isZeroPricing =
+              (item.pricing?.prompt === '0' || item.pricing?.prompt === 0) &&
+              (item.pricing?.completion === '0' || item.pricing?.completion === 0);
 
-          if (isFreeSlug || isZeroPricing) {
-            const friendlyName = item.name || formatModelName(id);
-            const description = item.description || `Zero-cost free model on OpenRouter (${id})`;
-            const contextLength = item.context_length || 128000;
-            const maxOutput = item.top_provider?.max_completion_tokens || 8192;
+            if (isFreeSlug || isZeroPricing) {
+              const friendlyName = item.name || formatModelName(id);
+              const description = item.description || `Zero-cost free model on OpenRouter (${id})`;
+              const contextLength = item.context_length || 128000;
+              const maxOutput = item.top_provider?.max_completion_tokens || 8192;
 
-            dynamicFreeModels.set(id, {
-              modelId: id,
-              modelName: friendlyName.includes('Free') ? friendlyName : `${friendlyName} (Free)`,
-              description: description.slice(0, 150),
-              rateMultiplier: 0,
-              rateUnit: 'credit',
-              supportedInputTypes: item.architecture?.modality?.includes('image') ? ['TEXT', 'IMAGE'] : ['TEXT'],
-              tokenLimits: {
-                maxInputTokens: contextLength,
-                maxOutputTokens: maxOutput,
-              },
-              pricing: { prompt: '0', completion: '0', unit: 'credit' },
-              capabilities: {
-                toolCalling: Boolean(item.description?.toLowerCase().includes('tool') || id.includes('instruct') || id.includes('chat')),
-                codeGeneration: Boolean(id.includes('code') || id.includes('qwen') || id.includes('llama') || id.includes('deepseek') || id.includes('gemini')),
-                reasoning: Boolean(id.includes('r1') || id.includes('qwq') || id.includes('thinking') || id.includes('reason')),
-                multiModal: Boolean(item.architecture?.modality?.includes('image') || id.includes('vl') || id.includes('vision')),
-              },
-              upstreamSlug: id,
-              owned_by: item.id?.split('/')[0] || 'openrouter-free',
-            });
+              dynamicFreeModels.set(id, {
+                modelId: id,
+                modelName: friendlyName.includes('Free') ? friendlyName : `${friendlyName} (Free)`,
+                description: description.slice(0, 150),
+                rateMultiplier: 0,
+                rateUnit: 'credit',
+                supportedInputTypes: item.architecture?.modality?.includes('image') ? ['TEXT', 'IMAGE'] : ['TEXT'],
+                tokenLimits: {
+                  maxInputTokens: contextLength,
+                  maxOutputTokens: maxOutput,
+                },
+                pricing: { prompt: '0', completion: '0', unit: 'credit' },
+                capabilities: {
+                  toolCalling: Boolean(item.description?.toLowerCase().includes('tool') || id.includes('instruct') || id.includes('chat')),
+                  codeGeneration: Boolean(id.includes('code') || id.includes('qwen') || id.includes('llama') || id.includes('deepseek') || id.includes('gemini')),
+                  reasoning: Boolean(id.includes('r1') || id.includes('qwq') || id.includes('thinking') || id.includes('reason')),
+                  multiModal: Boolean(item.architecture?.modality?.includes('image') || id.includes('vl') || id.includes('vision')),
+                },
+                upstreamSlug: id,
+                owned_by: item.id?.split('/')[0] || 'openrouter-free',
+              });
+            }
           }
+          lastSyncTimestamp = Date.now();
+          console.log(`[ModelCatalog] Auto-populated ${dynamicFreeModels.size} live free models from OpenRouter.`);
         }
-        lastSyncTimestamp = Date.now();
-        console.log(`[ModelCatalog] Auto-populated ${dynamicFreeModels.size} live free models from OpenRouter.`);
+      }
+    } catch (orErr: any) {
+      console.warn(`[ModelCatalog] OpenRouter sync warning: ${orErr.message}`);
+    }
+
+    // 2. Auto-populate models from configured Custom Providers (e.g. Groq, Together, DeepSeek, Cerebras, GLM)
+    if (Array.isArray(config.customProviders)) {
+      for (const cp of config.customProviders) {
+        if (!cp.enabled || cp.autoPopulate === false) continue;
+
+        const candidateUrls = (Array.isArray(cp.baseUrls) && cp.baseUrls.length > 0)
+          ? cp.baseUrls
+          : (cp.baseUrl ? [cp.baseUrl] : []);
+        const candidateKeys = (Array.isArray(cp.apiKeys) && cp.apiKeys.length > 0)
+          ? cp.apiKeys
+          : (cp.apiKey ? [cp.apiKey] : ['']);
+
+        for (const rawUrl of candidateUrls) {
+          if (!rawUrl || rawUrl.includes('generativelanguage.googleapis.com')) continue;
+          let modelsUrl = rawUrl.trim().replace(/\/+$/, '');
+          if (modelsUrl.endsWith('/chat/completions')) {
+            modelsUrl = modelsUrl.replace(/\/chat\/completions$/, '/models');
+          } else if (modelsUrl.endsWith('/v1') || modelsUrl.endsWith('/api/v1')) {
+            modelsUrl = `${modelsUrl}/models`;
+          } else if (!modelsUrl.endsWith('/models')) {
+            modelsUrl = `${modelsUrl}/models`;
+          }
+
+          let providerDiscovered = false;
+          for (const key of candidateKeys) {
+            try {
+              const cpController = new AbortController();
+              const cpTimeout = setTimeout(() => cpController.abort(), 4000);
+              const cpHeaders: Record<string, string> = {
+                'Accept': 'application/json',
+                'User-Agent': 'KiroProxy-Gateway/2.8.0',
+              };
+              if (key && key.trim().length > 0) {
+                cpHeaders['Authorization'] = `Bearer ${key.trim()}`;
+              }
+
+              const cpResp = await fetch(modelsUrl, {
+                headers: cpHeaders,
+                signal: cpController.signal,
+              }).finally(() => clearTimeout(cpTimeout));
+
+              if (cpResp.ok) {
+                const cpData: any = await cpResp.json();
+                const modelList = Array.isArray(cpData.data)
+                  ? cpData.data
+                  : (Array.isArray(cpData.models) ? cpData.models : []);
+
+                for (const item of modelList) {
+                  const id = typeof item === 'string' ? item : (item.id || item.name || '');
+                  if (!id) continue;
+
+                  if (cp.freeOnly) {
+                    const isFree = id.includes('free') || item.pricing?.prompt === '0' || item.pricing?.prompt === 0;
+                    if (!isFree) continue;
+                  }
+
+                  const rawName = typeof item === 'object' && item.name ? item.name : formatModelName(id);
+                  const friendlyName = `${cp.name} - ${rawName}`;
+                  const description = typeof item === 'object' && item.description
+                    ? item.description
+                    : `Discovered model from custom provider ${cp.name} (${id})`;
+
+                  dynamicFreeModels.set(id, {
+                    modelId: id,
+                    modelName: friendlyName,
+                    description: description.slice(0, 160),
+                    rateMultiplier: 0,
+                    rateUnit: 'credit',
+                    supportedInputTypes: ['TEXT', 'IMAGE'],
+                    tokenLimits: {
+                      maxInputTokens: typeof item === 'object' && item.context_length ? item.context_length : 128000,
+                      maxOutputTokens: 16384,
+                    },
+                    pricing: { prompt: '0', completion: '0', unit: 'credit' },
+                    capabilities: {
+                      toolCalling: true,
+                      codeGeneration: true,
+                      reasoning: id.includes('r1') || id.includes('qwq') || id.includes('reason'),
+                      multiModal: Boolean(id.includes('vl') || id.includes('vision') || id.includes('4o')),
+                    },
+                    upstreamSlug: id,
+                    owned_by: cp.name.toLowerCase().replace(/\s+/g, '-'),
+                  });
+                }
+                console.log(`[ModelCatalog] Auto-populated ${modelList.length} models from custom provider ${cp.name} (${modelsUrl}).`);
+                providerDiscovered = true;
+                break;
+              }
+            } catch {
+              // Ignore and try next key or url
+            }
+          }
+          if (providerDiscovered) break;
+        }
       }
     }
   } catch (err: any) {
     console.warn(`[ModelCatalog] Background live free model sync: ${err.message}. Using built-in catalog.`);
   } finally {
     isSyncing = false;
+    cachedCatalog = null;
+    lastCacheKey = '';
   }
 
   return {
@@ -940,10 +1049,23 @@ export async function syncFreeModelsFromProviders(): Promise<{ count: number; to
   };
 }
 
+let cachedCatalog: ModelCatalogEntry[] | null = null;
+let lastCacheKey = '';
+
+export function invalidateCatalogCache(): void {
+  cachedCatalog = null;
+  lastCacheKey = '';
+}
+
 /**
  * Returns the unified model catalog with all free models auto-populated from all providers.
  */
 export function getCompleteModelCatalog(config: KiroGatewayConfig): ModelCatalogEntry[] {
+  const cacheKey = `${dynamicFreeModels.size}:${(config.customProviders || []).map((cp) => `${cp.enabled}:${cp.activeModel}`).join('|')}`;
+  if (cachedCatalog && lastCacheKey === cacheKey) {
+    return cachedCatalog;
+  }
+
   const modelMap = new Map<string, ModelCatalogEntry>();
 
   // 1. Pre-seeded Rich Catalog (highest precedence for carefully crafted names and token limits)
@@ -1014,7 +1136,10 @@ export function getCompleteModelCatalog(config: KiroGatewayConfig): ModelCatalog
     }
   }
 
-  return Array.from(modelMap.values());
+  const result = Array.from(modelMap.values());
+  cachedCatalog = result;
+  lastCacheKey = cacheKey;
+  return result;
 }
 
 // Kick off initial background auto-sync immediately (non-blocking)

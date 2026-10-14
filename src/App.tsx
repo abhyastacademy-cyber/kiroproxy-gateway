@@ -214,6 +214,8 @@ export default function App() {
 
           {activeTab === 'models' && (
             <ModelsTab
+              config={config}
+              onNavigateTab={(tab: string) => setActiveTab(tab as TabType)}
               onTestModel={(modelId: string) => {
                 setSelectedTestModel(modelId);
                 setActiveTab('tester');
