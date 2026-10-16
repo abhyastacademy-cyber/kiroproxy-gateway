@@ -73,3 +73,30 @@ Problem Encountered
      - `metadataEvent`: Direct UTF-8 JSON `{"tokenUsage":{...},"stopReason":"END_TURN"|"TOOL_USE"}`
   2. Added Kiro IDE session headers (`x-amzn-kiro-conversation-id`, `x-amzn-kiro-profile-arn`, `x-amzn-requestid`, `x-amzn-session-id`).
   3. Verified with live regression probe tests identical to `kpgateway.space-z.ai`.
+
+### 6. Why Local Port 8084 Worked Cleanly While Cloud Gateway Triggered Internal Error (Comparative Architecture Analysis)
+
+#### Architecture Matrix Comparison:
+| Component / Behavior | Local Gateway (`http://127.0.0.1:8084`) | Cloud Gateway (Initial Build) | Cloud Gateway (Resilient Architecture) |
+| :--- | :--- | :--- | :--- |
+| **Server Engine** | Pure Node.js `http.createServer` | Next.js / Static Root Router | Express with Universal AWS Catch-All |
+| **POST / (Background Telemetry)** | Absorbed by `handleAwsCatchAll` → 200 OK | Blocked → 405 Method Not Allowed | Absorbed by `handleAwsCatchAll` → 200 OK + Patch 3B returns `void 0` |
+| **POST /mcp/stream** | Absorbed by `handleAwsCatchAll` → 200 OK | Route not found → 404 Not Found | Absorbed by `handleAwsCatchAll` → 200 OK + Patch 6 synthetic stream |
+| **Kiro Client Reaction** | All auxiliary checks pass cleanly | Internal `IUu` validator crashes on 405 → "Internal error" | Clean stream execution, zero unhandled exceptions |
+
+#### The Root Causes:
+1. **Root Route Rejection**: Next.js and static page routers intercept root routes. Receiving `POST /` returns `HTTP 405 Method Not Allowed` (`body="Method Not Allowed"`), and `POST /mcp/stream` returns `HTTP 404 Not Found`. Kiro IDE's client unmarshaller (`IUu` in `extension.js`) throws an unhandled error upon receiving 405: `[ERROR] [KRS] HTTP 405 requestId=(none) body=Method Not Allowed` presenting `Error sending prompt: Internal error`.
+2. **Telemetry Misdirection (Patch 3B)**: In `patch_kiro_extension.js`, Patch 3B originally intercepted `resolveTarget()`. `resolveTarget()` is not the prompt endpoint—it is Kiro's `activity.publish` background telemetry uploader. Pointing it to the cloud gateway caused Kiro to spam `POST /` to the web root.
+3. **Overbroad Dynamic Rerouting (Patch 3A+)**: Patch 3A+ (`RKo`) was redirecting all services including management and telemetry rather than isolating "runtime".
+
+#### Resolutions Applied:
+1. **Server-Side Universal AWS Catch-All (`handleAwsCatchAll` in `server.ts`)**:
+   - Explicitly intercepts `POST /`, `POST /mcp/stream`, `POST /events`, `POST /telemetry`, `POST /activity/publish`, returning HTTP 200 OK with `{ __type: "com.amazon.kiro.runtimeservice#Success", status: "ok" }`.
+   - Provides empty stream termination for `/mcp/stream`.
+   - Fallback `app.post('*')` catches any remaining auxiliary AWS requests.
+2. **Extension Patch 3B**:
+   - `resolveTarget()` updated to return `void 0` in proxy mode. Kiro logs `activity.publish.disabled_for_region` and sends zero `POST /` calls.
+3. **Extension Patch 6**:
+   - Intercepts `InvokeMCPStreamCommand` in `RIt` middleware, returning a synthetic HTTP 200 OK empty stream.
+4. **Extension Patch 3A+**:
+   - Restricts `RKo` dynamic rerouting strictly to `t === "runtime"`.

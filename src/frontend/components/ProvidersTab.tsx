@@ -27,6 +27,15 @@ interface ProvidersTabProps {
 
 export const PRESET_TEMPLATES = [
   {
+    id: 'backend-ai',
+    name: 'Backend Auto-Auth AI (Cloud Platform)',
+    baseUrl: 'internal://backend-ai',
+    model: 'gemini-flash-latest',
+    badge: 'Auto-Auth / 0 User Key',
+    speed: 'Google GenAI SDK',
+    notes: 'Direct auto-authenticated server-side AI access via backend environment credentials (process.env.GEMINI_API_KEY). Zero user API key required.',
+  },
+  {
     id: 'groq',
     name: 'Groq Cloud',
     baseUrl: 'https://api.groq.com/openai/v1',

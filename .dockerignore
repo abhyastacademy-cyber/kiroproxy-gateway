@@ -24,5 +24,7 @@ config/kiro_ai_config.local.json
 *.log
 tmp/
 temp/
+*.bak
+archive/
 .DS_Store
 Thumbs.db

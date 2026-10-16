@@ -41,7 +41,14 @@
 * **Files Affected**:
   - `src/backend/handlers/eventstream.ts`
   - `src/backend/handlers/bedrock_handler.ts`
-* **Invariant**: Header length + Payload length + 4-byte CRC prelude + 4-byte message CRC must strictly equal Total Message Length. CRC32 polynomial is standard IEEE 802.3 (Ethernet/ZIP).
+* **Invariant**: Header length + Payload length + 4-byte CRC prelude + 4-byte message CRC must strictly equal Total Message Length. CRC32 polynomial is standard IEEE 802.3 (Ethernet/ZIP). Kiro IDE requires Smithy frames (`assistantResponseEvent`, `toolUseEvent`, `metadataEvent`).
+
+### Scenario D: Modifying Universal AWS Catch-All or Extension Patching Logic
+* **Files Affected**:
+  - `server.ts` (`handleAwsCatchAll`)
+  - `scripts/patch_kiro_extension.js` (Patch 1, Patch 3A+, Patch 3B, Patch 6)
+  - `src/frontend/components/PatcherTab.tsx`
+* **Invariant**: Never remove `handleAwsCatchAll` on `POST /`, `POST /mcp/stream`, `POST /events`, or `POST /telemetry`. In `patch_kiro_extension.js`, `resolveTarget` must return `void 0` to silence telemetry calls at the client source.
 
 ---
 

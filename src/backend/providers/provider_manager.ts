@@ -131,12 +131,47 @@ export class ProviderManager {
       }
     }
 
+    // 3b. Direct Backend Auto-Auth AI model request (backend-ai/*, backend-gemini-*, etc.)
+    if (
+      !isAutomode &&
+      (requestedModel.startsWith('backend-') ||
+        requestedModel.startsWith('backend-ai/') ||
+        requestedModel === 'ai-studio-backend')
+    ) {
+      const backendCustom = config.customProviders.find((cp) => cp.id === 'backend-ai' && cp.enabled);
+      if (backendCustom) {
+        try {
+          const text = await customProviderService.executeWithFailover(
+            backendCustom,
+            options.messages,
+            requestedModel,
+            onChunk
+          );
+          healthManager.recordMetric({
+            timestamp: Date.now(),
+            provider: 'backend-ai (auto-auth)',
+            model: backendCustom.modelMapping?.[requestedModel] || requestedModel,
+            durationMs: Date.now() - startTime,
+            status: 'success',
+            bytesSent: text.length,
+          });
+          return {
+            text,
+            providerUsed: 'backend-ai (auto-auth)',
+            modelUsed: backendCustom.modelMapping?.[requestedModel] || requestedModel,
+          };
+        } catch (backendErr: any) {
+          console.warn(`[ProviderManager] Backend AI auto-auth failed: ${backendErr.message}. Falling back to priority waterfall...`);
+        }
+      }
+    }
+
     // 4. Special case: if requested model matches an enabled custom provider
     if (!isAutomode) {
       const matchingCustom = config.customProviders.find(
         (cp) => cp.enabled && (cp.activeModel === requestedModel || cp.defaultModel === requestedModel || cp.modelMapping?.[requestedModel])
       );
-      if (matchingCustom && !requestedModel.toLowerCase().includes('gemini')) {
+      if (matchingCustom && (!requestedModel.toLowerCase().includes('gemini') || matchingCustom.id === 'backend-ai')) {
         try {
           const text = await customProviderService.executeWithFailover(
             matchingCustom,

@@ -40,11 +40,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   const isTokenConfigured = Boolean(adminToken || (config as any)?.adminToken);
 
   const publicUrl =
-    health?.environment.publicUrl ||
-    (typeof window !== 'undefined' &&
+    typeof window !== 'undefined' &&
     (window.location.hostname.includes('ai.studio') || window.location.hostname.includes('run.app'))
       ? window.location.origin
-      : 'http://localhost:3000');
+      : (health?.environment.publicUrl || 'http://localhost:3000');
 
   const handleCopyUrl = () => {
     navigator.clipboard.writeText(publicUrl);

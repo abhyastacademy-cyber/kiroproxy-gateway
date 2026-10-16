@@ -1,9 +1,13 @@
 #!/usr/bin/env node
 
 /**
- * Kiro IDE Extension Patcher (v5.1-cloud)
+ * Kiro IDE Extension Patcher (v5.2-cloud-resilient)
  * Automatically locates the installed Kiro IDE extension, creates a backup,
- * and patches the Bedrock EventStream and model discovery URLs to point to KiroProxy Cloud Gateway.
+ * and applies the full suite of runtime proxy and telemetry isolation patches:
+ * - Patch 1: Endpoints redirection (generateAssistantResponse & listAvailableModels)
+ * - Patch 3A+: Dynamic service rerouting restricted strictly to t === "runtime" (RKo)
+ * - Patch 3B: Telemetry bypass in resolveTarget() returning void 0 (activity.publish.disabled_for_region)
+ * - Patch 6: Synthetic 200 OK empty stream interception for InvokeMCPStreamCommand (RIt)
  */
 
 const fs = require('fs');
@@ -22,7 +26,7 @@ const modelsEndpoint = adminToken
   : `${cleanGatewayUrl}/listAvailableModels`;
 
 console.log('========================================================');
-console.log('⚡ Kiro IDE Cloud Gateway Patcher (v5.1)');
+console.log('⚡ Kiro IDE Cloud Gateway Patcher (v5.2 - Full Resilience)');
 console.log(`🌐 Target Gateway URL: ${cleanGatewayUrl}`);
 if (adminToken) {
   console.log(`🔒 Admin Auth Token:  [CONFIGURED]`);
@@ -64,13 +68,12 @@ for (const extDir of possibleExtensionsDirs) {
 }
 
 if (candidatesFound.length === 0) {
-  console.log('ℹ️  No extension found in default directories.');
-  console.log('👉 If your extension is installed in a custom location, run:');
-  console.log(`   node patch_kiro_extension.js "${cleanGatewayUrl}" "${adminToken}" "/path/to/extension.js"\n`);
-  
   if (process.argv[4] && fs.existsSync(process.argv[4])) {
     candidatesFound.push(process.argv[4]);
   } else {
+    console.log('ℹ️  No extension found in default directories.');
+    console.log('👉 If your extension is installed in a custom location, run:');
+    console.log(`   node patch_kiro_extension.js "${cleanGatewayUrl}" "${adminToken}" "/path/to/extension.js"\n`);
     process.exit(0);
   }
 }
@@ -90,27 +93,76 @@ for (const targetFile of candidatesFound) {
     }
 
     let modified = content;
+    let patchesApplied = 0;
 
-    // Patch endpoints
+    // --- Patch 1: Direct endpoint URL rewrites ---
     if (modified.includes('generateAssistantResponse')) {
-      console.log(`   ✅ Patching Bedrock endpoint -> ${bedrockEndpoint}`);
       modified = modified.replace(
         /https?:\/\/[a-zA-Z0-9.\-_:]+\/generateAssistantResponse/g,
         bedrockEndpoint
       );
-      patchedCount++;
+      console.log(`   ✅ [Patch 1A] Bedrock endpoint redirected -> ${bedrockEndpoint}`);
+      patchesApplied++;
     }
 
     if (modified.includes('listAvailableModels')) {
-      console.log(`   ✅ Patching Models discovery -> ${modelsEndpoint}`);
       modified = modified.replace(
         /https?:\/\/[a-zA-Z0-9.\-_:]+\/listAvailableModels/g,
         modelsEndpoint
       );
+      console.log(`   ✅ [Patch 1B] Model discovery redirected -> ${modelsEndpoint}`);
+      patchesApplied++;
     }
 
-    fs.writeFileSync(targetFile, modified, 'utf8');
-    console.log(`   ✨ Successfully patched ${targetFile}\n`);
+    // --- Patch 3B: Disable activity.publish telemetry uploader in resolveTarget() ---
+    // In unpatched Kiro, resolveTarget() sends background telemetry to POST /.
+    // Returning void 0 causes Kiro to log activity.publish.disabled_for_region and send 0 POST / calls.
+    if (modified.includes('resolveTarget') && !modified.includes('/* KIRO_PATCH_3B */')) {
+      const resolveTargetRegex = /(function\s+resolveTarget\s*\([^)]*\)\s*\{|resolveTarget\s*:\s*function\s*\([^)]*\)\s*\{|resolveTarget\s*\([^)]*\)\s*\{)/;
+      if (resolveTargetRegex.test(modified)) {
+        modified = modified.replace(
+          resolveTargetRegex,
+          `$1 /* KIRO_PATCH_3B */ return void 0; `
+        );
+        console.log(`   ✅ [Patch 3B] Telemetry uploader disabled in resolveTarget() -> returns void 0`);
+        patchesApplied++;
+      }
+    }
+
+    // --- Patch 3A+: Restrict RKo dynamic rerouting strictly to t === "runtime" ---
+    // Prevents redirection of non-inference services (management, telemetry, auth) to gateway.
+    if (modified.includes('RKo') && !modified.includes('/* KIRO_PATCH_3AP */')) {
+      const rkoRegex = /function\s+RKo\s*\(([^)]+)\)\s*\{/g;
+      if (rkoRegex.test(modified)) {
+        modified = modified.replace(
+          rkoRegex,
+          `function RKo($1) { /* KIRO_PATCH_3AP */ if (arguments[0] !== "runtime" && arguments[1] !== "runtime") return void 0; `
+        );
+        console.log(`   ✅ [Patch 3A+] Dynamic service resolver (RKo) isolated strictly to runtime service`);
+        patchesApplied++;
+      }
+    }
+
+    // --- Patch 6: Synthetic 200 OK empty stream for InvokeMCPStreamCommand (RIt) ---
+    if (modified.includes('InvokeMCPStreamCommand') && !modified.includes('/* KIRO_PATCH_6 */')) {
+      const mcpRegex = /async\s+InvokeMCPStreamCommand\s*\([^)]*\)\s*\{/g;
+      if (mcpRegex.test(modified)) {
+        modified = modified.replace(
+          mcpRegex,
+          `async InvokeMCPStreamCommand() { /* KIRO_PATCH_6 */ return { stream: (async function*() {})(), $metadata: { httpStatusCode: 200 } }; `
+        );
+        console.log(`   ✅ [Patch 6] InvokeMCPStreamCommand synthetic 200 OK stream interceptor installed`);
+        patchesApplied++;
+      }
+    }
+
+    if (patchesApplied > 0) {
+      fs.writeFileSync(targetFile, modified, 'utf8');
+      console.log(`   ✨ Successfully applied ${patchesApplied} patch(es) to ${targetFile}\n`);
+      patchedCount++;
+    } else {
+      console.log(`   ℹ️  No new patches needed for ${targetFile}\n`);
+    }
   } catch (err) {
     console.error(`   ❌ Failed patching ${targetFile}:`, err.message);
   }

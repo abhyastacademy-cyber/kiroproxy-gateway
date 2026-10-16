@@ -22,6 +22,22 @@ export class CustomProviderService {
       keys.push('');
     }
 
+    // Auto-Authenticated Backend AI Access (AI Studio / Cloud Platform)
+    if (provider.id === 'backend-ai' || provider.baseUrl?.startsWith('internal://') || (Array.isArray(provider.baseUrls) && provider.baseUrls.some(u => u.startsWith('internal://')))) {
+      const { geminiProvider } = await import('./gemini_provider.js');
+      const targetGeminiModel = provider.modelMapping?.[requestedModel] ||
+        provider.modelMapping?.[requestedModel.replace(/^backend-ai\//, '')] ||
+        provider.defaultModel ||
+        'gemini-flash-latest';
+
+      return await geminiProvider.streamGenerate(
+        messages,
+        undefined,
+        targetGeminiModel,
+        onChunk
+      );
+    }
+
     if (urls.length === 0) {
       throw new Error(`Provider ${provider.name} has no valid baseUrls configured.`);
     }

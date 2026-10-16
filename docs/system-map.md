@@ -18,14 +18,15 @@
 [Express Server: server.ts]
   ├── Middlewares: JSON/Raw Buffer (15mb), CORS, Diagnostics
   ├── Handlers:
-  │    ├── bedrock_handler.ts  ── AWS EventStream CRC32 binary framer
-  │    ├── openai_handler.ts   ── /v1/chat/completions, /v1/models, /listAvailableModels
-  │    ├── canvas_handler.ts   ── /poll, /chunk, /done (Canvas reverse polling bridge)
-  │    └── config/health APIs  ── /api/config, /health, /status, /metrics
+  │    ├── bedrock_handler.ts   ── AWS / Smithy EventStream CRC32 binary framer
+  │    ├── anthropic_handler.ts ── /v1/messages, /messages (Claude Code CLI adapter)
+  │    ├── handleAwsCatchAll    ── Absorbs POST /, POST /mcp/stream, POST /events, telemetry
+  │    ├── openai_handler.ts    ── /v1/chat/completions, /v1/models, /listAvailableModels
+  │    ├── canvas_handler.ts    ── /poll, /chunk, /done (Canvas reverse polling bridge)
+  │    └── config/health APIs   ── /api/config, /health, /status, /metrics
   ▼
 [Provider Manager & Resilience Engine]
   ├── circuit_breaker.ts      ── Health tracking & automated circuit tripping per tier
-  ├── retry_engine.ts         ── Exponential backoff & jitter
   └── 7-Tier Zero-Cost Waterfall:
        1. Kilo Gateway (api.kilo.ai / openrouter.ai)
        2. Cline Gateway (api.cline.bot / openrouter.ai)
@@ -62,13 +63,19 @@
   - `circuit_breaker.ts`: Provider-specific failure threshold tracking and half-open reset logic.
   - `health.ts`: System uptime, active provider counts, token counters, and telemetry metrics.
 * **`translators/`**:
-  - `tool_extractor.ts`: Multi-format tool extraction engine supporting 13+ LLM formats (Format 1b bare JSON, Format 6b XML tags, Kiro native tool_call, Anthropic tool_use, parameter tags, and code manifest auto-extraction), with tool alias normalization and argument repair.
+  - `tool_extractor.ts`: Upgraded multi-format tool extraction engine supporting 13+ LLM formats (Format 1b bare JSON, Format 6b XML tags, Kiro native tool_call, Anthropic tool_use, parameter tags, and code manifest auto-extraction), with tool alias normalization, argument repair, validation loop suppression (preventing empty commands from crashing IDE), and PowerShell CLI normalization (`curl.exe`, prompt strip).
   - `tool_translator.ts`: Formats tools for OpenAI/Gemini schemas and generates binary EventStream tool use frames.
   - `sanitizer.ts`: Context and system prompt sanitizer stripping telemetry signatures, and unescaped backslash normalizer (`sanitizeJsonBackslashes`).
   - `smithy_parser.ts`: Decodes AWS Bedrock / Smithy conversationState JSON into normalized chat turns.
 * **`config/`**:
   - `index.ts`: Thread-safe configuration manager with `/tmp/kiro_ai_config.json` write fallback for Cloud Run.
-  - `catalog.ts`: Comprehensive catalog of 80+ zero-cost free models with live provider synchronization and in-memory caching.
+  - `catalog.ts`: Comprehensive catalog of 100+ zero-cost free models with live provider synchronization and in-memory caching.
+* **`archive/`**:
+  - `README.md`: Index of retired legacy components.
+  - `config/kiro_ai_config.template.json`: Superseded configuration template.
+  - `handlers/workflow_handler.ts`: Archived unreferenced session tracker.
+  - `resilience/retry_engine.ts`: Archived unreferenced standalone backoff engine.
+  - `bun.lock`: Archived legacy package lockfile.
 
 ### `src/frontend/`
 * `App.tsx`: Main application shell with tab switching, navigation, and configuration hydration.

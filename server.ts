@@ -14,6 +14,7 @@ import { installGlobalAutomodeInterceptor } from './src/backend/resilience/globa
 installGlobalAutomodeInterceptor();
 import { handleGenerateAssistantResponse, validateAdminAuth } from './src/backend/handlers/bedrock_handler.js';
 import { handleChatCompletions, handleModels, whgwListModels } from './src/backend/handlers/openai_handler.js';
+import { handleAnthropicMessages } from './src/backend/handlers/anthropic_handler.js';
 import { handlePoll, handleChunk, handleDone, handleCanvasStatus, setCorsHeaders } from './src/backend/handlers/canvas_handler.js';
 import { providerManager } from './src/backend/providers/provider_manager.js';
 import { ngrokService } from './src/backend/resilience/ngrok_service.js';
@@ -25,6 +26,7 @@ const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
+  app.set('trust proxy', true);
 
   // Basic middleware
   app.use(express.json({ limit: '15mb' }));
@@ -55,11 +57,53 @@ async function startServer() {
   app.post('/generateAssistantResponse', handleGenerateAssistantResponse);
   app.post('/k/:token/generateAssistantResponse', handleGenerateAssistantResponse);
 
+  // 2b. Universal AWS Catch-All for Kiro IDE auxiliary background requests
+  // Absorbs background telemetry (POST /), requirements MCP streams (POST /mcp/stream),
+  // events (POST /events), and telemetry calls, returning HTTP 200 OK.
+  // Prevents Kiro IDE client unmarshaller (IUu) crashes on HTTP 405/404.
+  const handleAwsCatchAll = (req: Request, res: Response) => {
+    const reqId = (req.headers['x-amzn-requestid'] as string) || `req_${Date.now()}`;
+
+    // If request asks for EventStream or is /mcp/stream
+    if (req.path.endsWith('/mcp/stream') || req.headers.accept?.includes('application/vnd.amazon.eventstream')) {
+      res.writeHead(200, {
+        'Content-Type': 'application/vnd.amazon.eventstream',
+        'x-amzn-requestid': reqId,
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+      });
+      res.end();
+      return;
+    }
+
+    // Standard AWS Smithy Success response for telemetry, events, and root calls
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'x-amzn-requestid': reqId,
+      'Access-Control-Allow-Origin': '*',
+    });
+    res.end(JSON.stringify({
+      __type: 'com.amazon.kiro.runtimeservice#Success',
+      status: 'ok',
+    }));
+  };
+
+  app.post(['/', '/k/:token/'], handleAwsCatchAll);
+  app.post(['/mcp/stream', '/k/:token/mcp/stream'], handleAwsCatchAll);
+  app.post(['/events', '/k/:token/events'], handleAwsCatchAll);
+  app.post(['/telemetry', '/k/:token/telemetry'], handleAwsCatchAll);
+  app.post(['/activity/publish', '/k/:token/activity/publish'], handleAwsCatchAll);
+
   // 3. Model Discovery Endpoints (Smithy /listAvailableModels & OpenAI /v1/models)
   app.get(['/listAvailableModels', '/k/:token/listAvailableModels'], whgwListModels);
   app.get(['/v1/models', '/k/:token/v1/models'], whgwListModels);
   app.post('/v1/chat/completions', handleChatCompletions);
   app.post('/k/:token/v1/chat/completions', handleChatCompletions);
+
+  // 3b. Anthropic Messages API (Claude Code CLI, Cursor, Continue, Anthropic SDKs)
+  app.post(['/v1/messages', '/messages'], handleAnthropicMessages);
+  app.post(['/k/:token/v1/messages', '/k/:token/messages'], handleAnthropicMessages);
 
   // Live model catalog refresh across all providers
   app.post(['/api/models/refresh', '/api/models/sync'], async (_req: Request, res: Response) => {
@@ -181,13 +225,28 @@ async function startServer() {
     }
   });
 
+  // 7b. Universal Fallback AWS / Kiro Catch-All for any auxiliary POST requests
+  app.post('*', (req: Request, res: Response) => {
+    handleAwsCatchAll(req, res);
+  });
+
   // 8. Serve Frontend (dist in production/if exists, Vite middleware in dev)
   const distPath = path.resolve(__dirname, 'dist');
   const distExists = fs.existsSync(distPath) && fs.existsSync(path.resolve(distPath, 'index.html'));
 
   if (distExists) {
-    app.use(express.static(distPath));
+    app.use(
+      express.static(distPath, {
+        maxAge: '1h',
+        setHeaders: (res, filePath) => {
+          if (filePath.includes('/assets/')) {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          }
+        },
+      })
+    );
     app.get('*', (_req: Request, res: Response) => {
+      res.setHeader('Cache-Control', 'no-cache');
       res.sendFile(path.resolve(distPath, 'index.html'));
     });
   } else {

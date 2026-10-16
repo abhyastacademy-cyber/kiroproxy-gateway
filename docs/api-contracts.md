@@ -56,7 +56,7 @@ Authentication is handled by `validateAdminAuth()` in [`src/backend/handlers/bed
 ### 2. `GET /listAvailableModels` (and `/k/:token/listAvailableModels`)
 * **Consumer**: Kiro IDE extension patch v5.1 (`whgwListModels`).
 * **Auth**: Public or token-gated.
-* **Auto-Populated Catalog**: Returns 100+ zero-cost free models auto-populated from Kilo, OpenRouter, Cline, OrcaRouter, Gemini, Canvas Bridge, and pre-loaded custom endpoints (Groq, Cerebras, Mistral, GitHub Models, SambaNova, Together AI, SiliconFlow, Pollinations).
+* **Auto-Populated Catalog**: Returns 100+ zero-cost free models auto-populated from Backend Auto-Auth AI (`backend-ai/auto`, `backend-ai/gemini-flash`, `backend-ai/gemini-argon`), Kilo, OpenRouter, Cline, OrcaRouter, Gemini, Canvas Bridge, and pre-loaded custom endpoints (Groq, Cerebras, Mistral, GitHub Models, SambaNova, Together AI, SiliconFlow, Pollinations).
 * **Performance**: Sub-millisecond response time backed by an in-memory cache and `Cache-Control: public, max-age=5, stale-while-revalidate=30`.
 * **Response Shape (Smithy Format)**:
   ```json
@@ -123,6 +123,22 @@ Authentication is handled by `validateAdminAuth()` in [`src/backend/handlers/bed
 
 ---
 
+### 4b. `POST /v1/messages` (and `/messages`, `/k/:token/v1/messages`)
+* **Consumer**: **Claude Code CLI** (`@anthropic-ai/claude-code`), Cursor, Continue, Anthropic TypeScript/Python SDKs.
+* **Auth**: `validateAdminAuth()`.
+* **Request Headers**: `anthropic-version: 2023-06-01`, `x-api-key: ...` or `Authorization: Bearer ...`.
+* **Request Body**: Standard Anthropic format (`{ model: string, messages: [], system?: string, tools?: [], stream?: boolean }`).
+* **Response (Streaming)**: Anthropic SSE events (`message_start`, `content_block_start`, `content_block_delta`, `content_block_stop`, `message_delta`, `message_stop`).
+* **Response (Non-streaming)**: Standard Anthropic message JSON object.
+* **Claude Code CLI Setup**:
+  ```bash
+  export ANTHROPIC_BASE_URL="https://<gateway-domain>"
+  export ANTHROPIC_API_KEY="auto-auth"
+  claude
+  ```
+
+---
+
 ### 5. `GET /poll`, `POST /chunk`, `POST /done`, `GET /api/canvas/status`
 * **Consumer**: Browser-based Gemini Canvas web worker tab or sandbox simulator.
 * **Auth**: Public.
@@ -145,6 +161,7 @@ Authentication is handled by `validateAdminAuth()` in [`src/backend/handlers/bed
 | `/api/export-env` | GET | Yes (if token set) | Exports settings as `.env` text | `{ envContent: "HOST=\"0.0.0.0\"..." }` |
 | `/api/test/generate` | POST | Yes (if token set) | Interactive test generation harness | SSE stream (`data: {"chunk":"..."}`) |
 | `/scripts/patch_kiro_extension.js` | GET | No | Direct client script download | Raw JavaScript file contents |
+| `/`, `/mcp/stream`, `/events`, `/telemetry` | POST | No | Universal AWS Catch-All for auxiliary Kiro IDE requests | `{ "__type": "com.amazon.kiro.runtimeservice#Success", "status": "ok" }` or empty stream |
 
 ---
 

@@ -43,6 +43,10 @@
 * **The Rule**: Open-source models returning embedded tool syntax (fenced JSON, bare JSON, Anthropic XML, Kiro native tool_call, Qwen/DeepSeek tags, or code manifests) MUST be extracted, normalized via `normalizeToolAliases` (`write_file` -> `fs_write`, `run_command` -> `execute_pwsh`), and emitted as native AWS Bedrock EventStream toolUse frames.
 * **The Trap**: If tool syntax is sent only as plain chat text, Kiro IDE will not trigger automated file modifications or terminal commands.
 
+### Invariant 7: Universal AWS Catch-All & Telemetry Isolation
+* **The Rule**: The gateway MUST absorb auxiliary AWS / Kiro background requests (`POST /`, `POST /mcp/stream`, `POST /events`, `POST /telemetry`, `POST /activity/publish`) and respond with HTTP 200 OK `{ __type: "com.amazon.kiro.runtimeservice#Success", status: "ok" }`.
+* **The Trap**: If any auxiliary call hits an unhandled 404 or 405 Method Not Allowed (e.g. Next.js static root route rejection), Kiro IDE's internal `IUu` unmarshaller crashes immediately with `Error sending prompt: Internal error`. Extension Patch 3B (`resolveTarget` returning `void 0`) prevents telemetry spam from reaching the network.
+
 ---
 
 ## 2. Known Gotchas & Race Conditions

@@ -37,12 +37,16 @@ class HealthAndResilienceManager {
    * In Cloud Run / Google AI Studio, native HTTPS ingress completely replaces ngrok!
    */
   public getTunnelUrl(requestHost?: string, requestProtocol?: string): string {
+    if (requestHost && (requestHost.includes('run.app') || requestHost.includes('ai.studio'))) {
+      const proto = requestProtocol || 'https';
+      return `${proto}://${requestHost}`;
+    }
     const config = configManager.getConfig();
     if (config.publicDomainUrl) {
       return config.publicDomainUrl;
     }
     if (requestHost) {
-      const proto = requestProtocol || 'https';
+      const proto = requestProtocol || (requestHost.includes('localhost') ? 'http' : 'https');
       return `${proto}://${requestHost}`;
     }
     if (this.ngrokUrl) {

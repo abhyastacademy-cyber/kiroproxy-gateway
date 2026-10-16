@@ -30,3 +30,11 @@
 ## 2. Refactoring Backlog
 1. **Automated Integration Test Harness**: Implement headless test script to verify binary EventStream frame headers without needing a running Kiro IDE instance.
 2. **Dynamic Provider Discovery**: Automatically probe custom provider endpoints on startup to pre-validate base URLs and model availability.
+
+---
+
+## 3. Recently Resolved Tech Debt
+1. **Unreferenced Legacy Modules Retired**: Archived unreferenced experimental modules (`workflow_handler.ts`, `retry_engine.ts`, `kiro_ai_config.template.json`, `bun.lock`) into `/archive`.
+2. **Frontend Bundle Splitting**: Configured manual vendor chunking in `vite.config.ts`, eliminating the monolithic 633 kB bundle and separating `vendor-react` and `vendor-icons` for cached browser distribution.
+3. **Static Asset Caching**: Added immutable 1-year cache headers for `/dist/assets/*` in `server.ts`.
+4. **Smithy Wire Protocol Alignment**: Fully aligned binary event frames with Kiro IDE's internal unmarshaller (`assistantResponseEvent`, `toolUseEvent`, `metadataEvent`), resolving the "Internal error" crash.

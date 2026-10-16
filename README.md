@@ -15,9 +15,11 @@ High-performance, zero-cost proxy gateway for **Kiro IDE**. Hosted on Google Clo
   1. `global-automode`: Full cross-provider and cross-model cascade.
   2. Provider-specific otomodes (`openrouter-otomode`, `kilo-otomode`, etc.): Intra-provider model cascade with key rotation.
   3. Specific model targeting: Cascades that exact model across all providers supplying it, **accumulating combined free quota limits**.
-- **Free AI Tier Calculator**: Visualizes aggregated free limits, monthly token budgets, and multi-key concurrency headroom in the Web UI.
-- **AWS Bedrock EventStream Encoding**: Real-time IEEE 802.3 CRC32-framed binary chunk streaming for native Kiro IDE desktop extension compatibility.
-- **Dual-Mode Discovery**: Supports both Smithy (`/listAvailableModels`) and OpenAI (`/v1/models`) discovery formats.
+- **Smithy & Bedrock Binary EventStream**: Native `assistantResponseEvent`, `toolUseEvent`, and `metadataEvent` binary encoding with IEEE 802.3 CRC32 framing preventing Kiro IDE unmarshaller crashes.
+- **Universal AWS Catch-All**: Absorbs auxiliary telemetry (`POST /`), MCP streams (`POST /mcp/stream`), and event requests, returning HTTP 200 OK.
+- **Multi-Format Tool Extraction Engine**: Detects and extracts tools across 13+ LLM formats (bare JSON, direct XML tags, Kiro native, Anthropic, Qwen/DeepSeek tags) and auto-extracts code manifests (`package.json`, `tsconfig.json`) into `fs_write`.
+- **Dual-Mode Discovery**: Supports both Smithy (`/listAvailableModels`) and OpenAI (`/v1/models`) discovery formats with 100+ zero-cost free models.
+- **Optimized Production Bundle**: Rollup code-splitting with dedicated vendor chunks (`vendor-react`, `vendor-icons`, `vendor-motion`) and 1-year immutable caching.
 - **Cloud Run Native**: Zero dependency on local tunneling tools; native HTTPS ingress with `/tmp` filesystem write fallbacks.
 
 ---

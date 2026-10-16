@@ -107,8 +107,10 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({ onTestModel, config, onNav
         if (!id.includes('groq') && !owner.includes('groq')) return false;
       } else if (activeFilter === 'cerebras') {
         if (!id.includes('cerebras') && !owner.includes('cerebras')) return false;
+      } else if (activeFilter === 'backend-ai') {
+        if (!id.includes('backend') && !owner.includes('backend')) return false;
       } else if (activeFilter === 'custom') {
-        const customKeywords = ['groq', 'cerebras', 'github', 'sambanova', 'together', 'siliconflow', 'pollinations', 'glm', 'abhyast'];
+        const customKeywords = ['backend', 'groq', 'cerebras', 'github', 'sambanova', 'together', 'siliconflow', 'pollinations', 'glm', 'abhyast'];
         if (!customKeywords.some((k) => id.includes(k) || owner.includes(k))) return false;
       } else if (activeFilter === 'community') {
         const communitySlugs = ['hermes', 'dolphin', 'openchat', 'zephyr', 'mythomax', 'rogue', 'toppy'];
@@ -199,6 +201,7 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({ onTestModel, config, onNav
           <div className="flex items-center gap-1.5 flex-wrap">
             {[
               { id: 'all', label: `All (${models.length})` },
+              { id: 'backend-ai', label: '🔒 Backend Auto-Auth' },
               { id: 'auto', label: 'Automode & Otomode' },
               { id: 'custom', label: '⚡ Pre-loaded Custom' },
               { id: 'groq', label: 'Groq Cloud' },

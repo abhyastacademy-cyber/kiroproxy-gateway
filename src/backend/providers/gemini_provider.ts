@@ -104,7 +104,14 @@ export class GeminiProvider {
 
       for (const mCandidate of modelCandidates) {
         try {
-          const client = new GoogleGenAI({ apiKey });
+          const client = new GoogleGenAI({
+            apiKey,
+            httpOptions: {
+              headers: {
+                'User-Agent': 'aistudio-build',
+              },
+            },
+          });
           const responseStream = await client.models.generateContentStream({
             model: mCandidate,
             contents,
@@ -143,6 +150,14 @@ export class GeminiProvider {
             `[GeminiProvider] Key #${keyIndex + 1} with model '${mCandidate}' failed (${errMsg.substring(0, 150)}). ` +
               (isQuotaOrAuth ? 'Trying next model/key candidate...' : 'Retrying candidate...')
           );
+          if (
+            errMsg.includes('API_KEY_INVALID') ||
+            errMsg.includes('leaked') ||
+            errMsg.includes('403') ||
+            errMsg.includes('PERMISSION_DENIED')
+          ) {
+            break; // Skip remaining models for this dead key
+          }
         }
       }
     }
