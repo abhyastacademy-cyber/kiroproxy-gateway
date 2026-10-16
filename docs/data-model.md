@@ -34,7 +34,7 @@ export interface KiroGatewayConfig {
   detectedPublicUrl?: string;      // Runtime detected ingress URL
   adminToken: string;              // Optional bearer token for API security
   providerPriorityOrder: string[]; // Order of 7 tiers
-  customProviders: CustomProvider[]; // User-defined custom endpoints
+  customProviders: CustomProvider[]; // User-defined & pre-loaded custom endpoints (PRELOADED_CUSTOM_PROVIDERS)
   activeDefaultModel: string;      // Default model exposed to clients
   model?: string;                  // Alias for activeDefaultModel
   temperature: number;             // Default inference temperature (0.7)

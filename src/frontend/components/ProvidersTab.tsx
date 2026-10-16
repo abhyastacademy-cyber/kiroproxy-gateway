@@ -15,6 +15,7 @@ import {
   Sparkles,
   Edit2,
   X,
+  Zap,
 } from 'lucide-react';
 import type { GatewayConfig, CustomProvider } from '../types.js';
 
@@ -23,6 +24,81 @@ interface ProvidersTabProps {
   onSaveConfig: (updated: Partial<GatewayConfig>) => Promise<boolean>;
   isSaving: boolean;
 }
+
+export const PRESET_TEMPLATES = [
+  {
+    id: 'groq',
+    name: 'Groq Cloud',
+    baseUrl: 'https://api.groq.com/openai/v1',
+    model: 'llama-3.3-70b-versatile',
+    badge: '14.4k req/day free',
+    speed: '~500 tok/s',
+    notes: 'Ultra-fast LPU (300-800 tok/s), 14.4k req/day (8B), 1k req/day (70B), 100% free without credit card',
+  },
+  {
+    id: 'cerebras',
+    name: 'Cerebras Cloud',
+    baseUrl: 'https://api.cerebras.ai/v1',
+    model: 'llama-3.3-70b',
+    badge: '1M tokens/day free',
+    speed: '~1,800 tok/s',
+    notes: 'Wafer-scale engine (~1,500 tok/s), 1,000,000 free tokens/day daily reset',
+  },
+  {
+    id: 'mistral',
+    name: 'Mistral AI',
+    baseUrl: 'https://api.mistral.ai/v1',
+    model: 'codestral-latest',
+    badge: 'Codestral 22B (60 RPM)',
+    speed: 'High Code IQ',
+    notes: 'Premier 22B coding model Codestral, free experimentation tier, 60 RPM',
+  },
+  {
+    id: 'github-models',
+    name: 'GitHub Models',
+    baseUrl: 'https://models.inference.ai.azure.com',
+    model: 'gpt-4o-mini',
+    badge: '50-150 req/day free',
+    speed: 'Azure AI',
+    notes: 'Free with any standard GitHub PAT (ghp_...), 50-150 req/day across GPT-4o, Phi-4, Claude & Mistral',
+  },
+  {
+    id: 'sambanova',
+    name: 'SambaNova Cloud',
+    baseUrl: 'https://api.sambanova.ai/v1',
+    model: 'Meta-Llama-3.3-70B-Instruct',
+    badge: '200k tok/day free',
+    speed: 'RDU Cluster',
+    notes: 'Custom RDU hardware, 200k tokens/day free developer tier for Llama 3.3 70B & DeepSeek R1',
+  },
+  {
+    id: 'together-ai',
+    name: 'Together AI Free',
+    baseUrl: 'https://api.together.ai/v1',
+    model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',
+    badge: '60 RPM Free Models',
+    speed: 'Turbo Free',
+    notes: 'Dedicated zero-cost endpoints with 60 RPM on Llama 3.3 70B Turbo & DeepSeek R1 Distill',
+  },
+  {
+    id: 'siliconflow',
+    name: 'SiliconFlow Free',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    model: 'Qwen/Qwen2.5-7B-Instruct',
+    badge: 'Free Open Catalog',
+    speed: 'Fast API',
+    notes: 'Permanently free open-source catalog for Qwen 2.5, DeepSeek V2.5, and GLM-4',
+  },
+  {
+    id: 'pollinations',
+    name: 'Pollinations AI',
+    baseUrl: 'https://text.pollinations.ai/openai',
+    model: 'mistral',
+    badge: 'Zero-Auth Free',
+    speed: 'Instant Zero-Key',
+    notes: 'Zero-authentication instant free tier without API keys or credit card',
+  },
+];
 
 const TIER_INFO: Record<string, { label: string; desc: string }> = {
   kilo: { label: 'Kilo Gateway', desc: '177+ Free Models, Zero-Key support, fast fallback' },
@@ -110,6 +186,26 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ config, onSaveConfig
     setFormApiKeys(keys);
     setFormModel(provider.activeModel || provider.defaultModel || '');
     setFormNotes(provider.notes || '');
+    setIsFormOpen(true);
+  };
+
+  const handleApplyPreset = (preset: typeof PRESET_TEMPLATES[0]) => {
+    const existing = customProviders.find(
+      (cp) =>
+        cp.id === preset.id ||
+        cp.name.toLowerCase().includes(preset.id.replace(/-/g, ' ')) ||
+        (cp.baseUrl && cp.baseUrl.includes(new URL(preset.baseUrl).hostname))
+    );
+    if (existing) {
+      handleOpenEdit(existing);
+      return;
+    }
+    setEditingProviderId(null);
+    setFormName(preset.name);
+    setFormBaseUrls(preset.baseUrl);
+    setFormApiKeys('');
+    setFormModel(preset.model);
+    setFormNotes(preset.notes);
     setIsFormOpen(true);
   };
 
@@ -270,6 +366,51 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ config, onSaveConfig
             <Plus className="w-3.5 h-3.5" />
             <span>Add Provider</span>
           </button>
+        </div>
+
+        {/* Pre-Loaded Zero-Cost Provider Presets (1-Click Setup) */}
+        <div className="p-3.5 rounded-xl bg-[#141417] border border-[#27272a] space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-zinc-300 flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-amber-400" />
+              <span>Pre-Loaded Zero-Cost Provider Presets (1-Click Setup)</span>
+            </span>
+            <span className="text-[10px] text-zinc-500">Click to instantly populate or edit credentials</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {PRESET_TEMPLATES.map((preset) => {
+              const isConfigured = customProviders.some(
+                (cp) => cp.id === preset.id || cp.name.toLowerCase().includes(preset.id.replace(/-/g, ' '))
+              );
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => handleApplyPreset(preset)}
+                  className={`p-2 rounded-lg border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                    isConfigured
+                      ? 'bg-blue-950/20 border-blue-500/30 hover:border-blue-500/60'
+                      : 'bg-[#18181b] border-[#27272a] hover:border-zinc-600'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <span className="text-xs font-bold text-white truncate">{preset.name}</span>
+                    {isConfigured && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" title="Configured" />
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/40 px-1 py-0.5 rounded truncate">
+                      {preset.badge}
+                    </span>
+                    <span className="text-[9px] text-zinc-500 font-mono shrink-0">
+                      {preset.speed}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Add/Edit Provider Modal Form */}

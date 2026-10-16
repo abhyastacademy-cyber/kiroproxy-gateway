@@ -42,17 +42,21 @@ Authentication is handled by `validateAdminAuth()` in [`src/backend/handlers/bed
   3. **Raw Prompt Fallback**: `{ "prompt": "..." }` or `{ "inputText": "..." }`
 * **Response Headers**:
   - `Content-Type: application/vnd.amazon.eventstream`
+  - `x-amzn-kiro-conversation-id: sess_<id>`
+  - `x-amzn-kiro-profile-arn: arn:aws:kiro:us-east-1:123456789012:profile/default`
+  - `x-amzn-requestid: req_<id>`
+  - `x-amzn-session-id: sess_<id>`
   - `Cache-Control: no-cache, no-transform`
   - `Connection: keep-alive`
   - `X-Accel-Buffering: no`
-* **Response Body**: Binary AWS EventStream stream. Frames are chunk events containing base64 JSON ([`src/backend/handlers/eventstream.ts:102-125`](file:///d:/sdlc_studio/projects/kiro-integration/tmp_cloud_audit/src/backend/handlers/eventstream.ts#L102-L125)).
+* **Response Body**: Binary IEEE 802.3 CRC32-framed AWS EventStream stream conforming to Smithy protocol (`assistantResponseEvent`, `toolUseEvent`, `metadataEvent`). Payloads are direct UTF-8 JSON (`{"content":"..."}`) preventing Kiro IDE unmarshaller crashes ([`src/backend/handlers/eventstream.ts`](file:///d:/sdlc_studio/projects/kiro-integration/tmp_cloud_audit/src/backend/handlers/eventstream.ts)).
 
 ---
 
 ### 2. `GET /listAvailableModels` (and `/k/:token/listAvailableModels`)
 * **Consumer**: Kiro IDE extension patch v5.1 (`whgwListModels`).
 * **Auth**: Public or token-gated.
-* **Auto-Populated Catalog**: Returns 80+ zero-cost free models auto-populated from Kilo, OpenRouter, Cline, OrcaRouter, Gemini, and Canvas Bridge.
+* **Auto-Populated Catalog**: Returns 100+ zero-cost free models auto-populated from Kilo, OpenRouter, Cline, OrcaRouter, Gemini, Canvas Bridge, and pre-loaded custom endpoints (Groq, Cerebras, Mistral, GitHub Models, SambaNova, Together AI, SiliconFlow, Pollinations).
 * **Performance**: Sub-millisecond response time backed by an in-memory cache and `Cache-Control: public, max-age=5, stale-while-revalidate=30`.
 * **Response Shape (Smithy Format)**:
   ```json
@@ -180,4 +184,22 @@ KiroProxy Gateway provides three distinct routing archetypes to achieve zero-dow
 * **Accumulated Free Limits (Multiplied Budget)**:
   - Each upstream provider grants independent free quotas (e.g., 20 RPM / 200 RPD on OpenRouter, 20 RPM on OrcaRouter, free gateway tier on Kilo, plus custom endpoint limits).
   - Because KiroProxy routes the identical target model across all providers in sequence upon rate limit encounters, the user effectively enjoys the **accumulated aggregate throughput and combined monthly token budget** of all providers combined without model substitution.
+
+---
+
+## 8. Pre-Loaded Zero-Cost Custom Providers & Model Directory
+
+KiroProxy Gateway v2.8.0-cloud includes 8 pre-loaded zero-cost provider configurations with 1-click setup templates and model mappings:
+
+| Provider | Base URL | Active Model | Free Tier Limits | Upstream Model Mapping |
+| :--- | :--- | :--- | :--- | :--- |
+| **Groq Cloud** | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | 14.4k req/day (8B), 1k req/day (70B), 30 RPM | `llama-3.3-70b`, `llama-3.1-8b`, `gemma2-9b` |
+| **Cerebras Cloud** | `https://api.cerebras.ai/v1` | `llama-3.3-70b` | **1,000,000 tokens/day free**, 30 RPM | `llama-3.3-70b`, `llama3.1-8b`, `deepseek-r1` |
+| **Mistral AI** | `https://api.mistral.ai/v1` | `codestral-latest` | 60 RPM free experimentation mode | `codestral-latest`, `mistral-small`, `mistral-nemo` |
+| **GitHub Models** | `https://models.inference.ai.azure.com` | `gpt-4o-mini` | 50–150 req/day with GitHub PAT (`ghp_...`) | `gpt-4o`, `gpt-4o-mini`, `phi-4`, `deepseek-r1` |
+| **SambaNova Cloud**| `https://api.sambanova.ai/v1` | `Meta-Llama-3.3-70B-Instruct` | 200k tokens/day free on custom RDUs | `llama-3.3-70b`, `deepseek-r1`, `qwen-72b` |
+| **Together AI** | `https://api.together.ai/v1` | `meta-llama/Llama-3.3-70B-Instruct-Turbo-Free` | 60 RPM on dedicated free endpoints | `llama-3.3-70b-free`, `deepseek-r1-distill-70b-free` |
+| **SiliconFlow** | `https://api.siliconflow.cn/v1` | `Qwen/Qwen2.5-7B-Instruct` | Permanently free open-source catalog | `qwen-7b`, `deepseek-v2.5`, `glm-4-9b` |
+| **Pollinations AI**| `https://text.pollinations.ai/openai` | `mistral` | **Zero-auth free tier**, no API key required | `mistral`, `llama`, `qwen` |
+
 

@@ -1,5 +1,8 @@
 import type { Request, Response } from 'express';
-import { createBedrockChunkFrame, createBedrockEndFrame } from './eventstream.js';
+import {
+  createAssistantResponseFrame,
+  createMetadataEventFrame,
+} from './eventstream.js';
 import { providerManager } from '../providers/provider_manager.js';
 import { configManager } from '../config/index.js';
 import { smithyParser } from '../translators/smithy_parser.js';
@@ -36,6 +39,8 @@ export function validateAdminAuth(req: Request): boolean {
 
 /**
  * Handles POST /generateAssistantResponse and POST /k/:token/generateAssistantResponse
+ * Implements native Smithy EventStream binary framing (assistantResponseEvent, toolUseEvent, metadataEvent)
+ * to prevent Kiro IDE "Internal error" unmarshaller crashes.
  */
 export async function handleGenerateAssistantResponse(req: Request, res: Response) {
   // Check security
@@ -61,9 +66,23 @@ export async function handleGenerateAssistantResponse(req: Request, res: Respons
   // Ensure fallback message if history is empty
   const messages = parsed.messages.length > 0 ? parsed.messages : [{ role: 'user' as const, content: 'Hello, please assist me.' }];
 
-  // Set AWS Bedrock binary EventStream response headers
+  // Session & conversation tracking
+  const rawConvId = req.body?.conversationState?.conversationId ||
+    req.headers['x-amzn-kiro-conversation-id'] ||
+    `sess_${Date.now()}`;
+  const conversationId = String(rawConvId);
+  const rawSessionId = req.headers['x-amzn-session-id'] || conversationId;
+  const sessionId = String(rawSessionId);
+  const rawRequestId = req.headers['x-amzn-requestid'] || `req_${Date.now()}`;
+  const requestId = String(rawRequestId);
+
+  // Set AWS Bedrock / Smithy binary EventStream response headers
   res.writeHead(200, {
     'Content-Type': 'application/vnd.amazon.eventstream',
+    'x-amzn-kiro-conversation-id': conversationId,
+    'x-amzn-kiro-profile-arn': 'arn:aws:kiro:us-east-1:123456789012:profile/default',
+    'x-amzn-requestid': requestId,
+    'x-amzn-session-id': sessionId,
     'Cache-Control': 'no-cache, no-transform',
     'Connection': 'keep-alive',
     'X-Accel-Buffering': 'no',
@@ -72,6 +91,8 @@ export async function handleGenerateAssistantResponse(req: Request, res: Respons
 
   try {
     let toolCallEmitted = false;
+    let accumulatedText = '';
+    const messageId = `msg_${Date.now()}`;
 
     await providerManager.streamResponse(
       {
@@ -88,25 +109,52 @@ export async function handleGenerateAssistantResponse(req: Request, res: Respons
         },
       },
       (chunk: string) => {
-        const frame = createBedrockChunkFrame(chunk);
+        accumulatedText += chunk;
+        const frame = createAssistantResponseFrame(chunk, parsed.modelId || 'auto', messageId);
         res.write(frame);
       }
     );
 
-    // If no tool call was emitted, write default end frame
+    // Multi-Format Tool Extraction Fallback:
+    // If no native tool call was emitted, extract tool calls embedded in response text across 13+ formats
+    if (!toolCallEmitted && accumulatedText) {
+      const extractedCalls = toolExtractor.extractToolCalls(accumulatedText, tools);
+      if (extractedCalls.length > 0) {
+        for (let i = 0; i < extractedCalls.length; i++) {
+          const rawCall = extractedCalls[i];
+          const normalized = toolExtractor.normalizeAliases(rawCall.name, rawCall.args, accumulatedText);
+          const invocation = {
+            id: 'call_' + Math.random().toString(36).substring(2, 9) + '_' + i,
+            name: normalized.name,
+            arguments: typeof normalized.args === 'string' ? normalized.args : JSON.stringify(normalized.args),
+          };
+          toolCallEmitted = true;
+          const frames = toolTranslator.createBedrockFramesForToolCall(invocation, i);
+          for (const frame of frames) {
+            res.write(frame);
+          }
+        }
+      }
+    }
+
+    // If no tool call was emitted, signal clean completion with Smithy metadataEvent
     if (!toolCallEmitted) {
-      const endFrame = createBedrockEndFrame();
+      const outputTokens = Math.max(1, Math.round(accumulatedText.length / 4));
+      const endFrame = createMetadataEventFrame('END_TURN', {
+        uncachedInputTokens: 500,
+        outputTokens,
+        totalTokens: 500 + outputTokens,
+      });
       res.write(endFrame);
     }
     res.end();
   } catch (err: any) {
     console.error('[BedrockHandler] Streaming error:', err);
-    // Send error chunk frame before ending
-    const errFrame = createBedrockChunkFrame(`\n[Gateway Error: ${err.message}]`);
+    // Send error message as assistantResponseEvent before closing
+    const errFrame = createAssistantResponseFrame(`\n[Gateway Error: ${err.message}]`, parsed.modelId || 'auto');
     res.write(errFrame);
-    const endFrame = createBedrockEndFrame();
+    const endFrame = createMetadataEventFrame('END_TURN');
     res.write(endFrame);
     res.end();
   }
 }
-

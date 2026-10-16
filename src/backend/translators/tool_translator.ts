@@ -1,9 +1,7 @@
 import type { NormalizedTool } from './tool_extractor.js';
 import {
-  createBedrockToolUseStartFrame,
-  createBedrockToolUseDeltaFrame,
-  createBedrockToolUseStopFrame,
-  createBedrockEndFrame,
+  createToolUseEventFrame,
+  createMetadataEventFrame,
 } from '../handlers/eventstream.js';
 
 export interface ToolCallInvocation {
@@ -39,29 +37,21 @@ export class ToolTranslator {
   }
 
   /**
-   * Generates Bedrock EventStream binary frames for a tool call invocation.
+   * Generates native Smithy EventStream binary frames for a tool call invocation.
+   * Frame 0: toolUseEvent { toolUseId, name, input, stop: true }
+   * Frame 1: metadataEvent { stopReason: 'TOOL_USE' }
    */
   public createBedrockFramesForToolCall(
     call: ToolCallInvocation,
-    blockIndex: number = 0
+    _blockIndex: number = 0
   ): Buffer[] {
     const frames: Buffer[] = [];
 
-    // 1. Tool Use Start frame
-    frames.push(createBedrockToolUseStartFrame(blockIndex, call.id, call.name));
+    // 1. Native Smithy toolUseEvent frame
+    frames.push(createToolUseEventFrame(call.id, call.name, call.arguments, true));
 
-    // 2. Tool Use Delta frame (chunked if large)
-    const chunkSize = 1024;
-    for (let i = 0; i < call.arguments.length; i += chunkSize) {
-      const chunk = call.arguments.slice(i, i + chunkSize);
-      frames.push(createBedrockToolUseDeltaFrame(blockIndex, chunk));
-    }
-
-    // 3. Tool Use Stop frame
-    frames.push(createBedrockToolUseStopFrame(blockIndex));
-
-    // 4. End frame with stopReason = 'tool_use'
-    frames.push(createBedrockEndFrame('tool_use'));
+    // 2. Native Smithy metadataEvent frame signaling TOOL_USE completion
+    frames.push(createMetadataEventFrame('TOOL_USE', { outputTokens: 1 }));
 
     return frames;
   }

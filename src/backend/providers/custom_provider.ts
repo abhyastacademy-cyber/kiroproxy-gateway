@@ -26,7 +26,14 @@ export class CustomProviderService {
       throw new Error(`Provider ${provider.name} has no valid baseUrls configured.`);
     }
 
-    let rawModel = provider.modelMapping?.[requestedModel] || provider.activeModel || requestedModel;
+    const modelWithoutPrefix = requestedModel.includes('/') ? requestedModel.split('/')[1] : requestedModel;
+    const isMatchingProvider = requestedModel.toLowerCase().startsWith(provider.id.toLowerCase() + '/') ||
+      requestedModel.toLowerCase().startsWith(provider.name.toLowerCase().replace(/\s+/g, '-') + '/');
+
+    let rawModel = provider.modelMapping?.[requestedModel] ||
+      provider.modelMapping?.[modelWithoutPrefix] ||
+      (isMatchingProvider ? modelWithoutPrefix : (provider.activeModel || requestedModel));
+
     if (rawModel.startsWith('ngrok-gemini-') || rawModel.startsWith('canvas-') || rawModel.startsWith('ngrok-')) {
       rawModel = rawModel.includes('pro') ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
     }

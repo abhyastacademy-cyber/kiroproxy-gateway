@@ -91,6 +91,175 @@ function normalizeCustomProvider(p: any, idx: number): CustomProvider {
 
 const CANONICAL_CLOUD_GATEWAY_URL = 'https://kiroproxy-746899042471.asia-southeast1.run.app';
 
+export const PRELOADED_CUSTOM_PROVIDERS: CustomProvider[] = [
+  {
+    id: 'groq',
+    name: 'Groq Cloud',
+    baseUrl: 'https://api.groq.com/openai/v1',
+    baseUrls: ['https://api.groq.com/openai/v1'],
+    apiKey: '',
+    apiKeys: [],
+    defaultModel: 'llama-3.3-70b-versatile',
+    activeModel: 'llama-3.3-70b-versatile',
+    priority: 'high',
+    autoPopulate: true,
+    freeOnly: true,
+    enabled: true,
+    notes: 'Ultra-fast LPU (300-800 tok/s), 14.4k req/day (8B), 1k req/day (70B), 100% free without credit card',
+    modelMapping: {
+      'auto': 'llama-3.3-70b-versatile',
+      'llama-3.3-70b': 'llama-3.3-70b-versatile',
+      'llama-3.1-8b': 'llama-3.1-8b-instant',
+      'gemma2-9b': 'gemma2-9b-it',
+    },
+  },
+  {
+    id: 'cerebras',
+    name: 'Cerebras Cloud',
+    baseUrl: 'https://api.cerebras.ai/v1',
+    baseUrls: ['https://api.cerebras.ai/v1'],
+    apiKey: '',
+    apiKeys: [],
+    defaultModel: 'llama-3.3-70b',
+    activeModel: 'llama-3.3-70b',
+    priority: 'high',
+    autoPopulate: true,
+    freeOnly: true,
+    enabled: true,
+    notes: 'Wafer-scale engine (~1,500 tok/s), 1,000,000 free tokens/day daily reset',
+    modelMapping: {
+      'auto': 'llama-3.3-70b',
+      'llama-3.3-70b': 'llama-3.3-70b',
+      'llama-3.1-8b': 'llama3.1-8b',
+      'deepseek-r1': 'deepseek-r1-distill-llama-70b',
+    },
+  },
+  {
+    id: 'mistral',
+    name: 'Mistral AI',
+    baseUrl: 'https://api.mistral.ai/v1',
+    baseUrls: ['https://api.mistral.ai/v1'],
+    apiKey: '',
+    apiKeys: [],
+    defaultModel: 'codestral-latest',
+    activeModel: 'codestral-latest',
+    priority: 'high',
+    autoPopulate: true,
+    freeOnly: true,
+    enabled: true,
+    notes: 'Premier 22B coding model Codestral, free experimentation tier, 60 RPM',
+    modelMapping: {
+      'auto': 'codestral-latest',
+      'codestral': 'codestral-latest',
+      'mistral-small': 'mistral-small-latest',
+      'mistral-nemo': 'open-mistral-nemo',
+    },
+  },
+  {
+    id: 'github-models',
+    name: 'GitHub Models',
+    baseUrl: 'https://models.inference.ai.azure.com',
+    baseUrls: ['https://models.inference.ai.azure.com'],
+    apiKey: '',
+    apiKeys: [],
+    defaultModel: 'gpt-4o-mini',
+    activeModel: 'gpt-4o-mini',
+    priority: 'high',
+    autoPopulate: true,
+    freeOnly: true,
+    enabled: true,
+    notes: 'Free with any standard GitHub PAT (ghp_...), 50-150 requests/day for GPT-4o, Phi-4, Claude & Mistral',
+    modelMapping: {
+      'auto': 'gpt-4o-mini',
+      'gpt-4o': 'gpt-4o',
+      'gpt-4o-mini': 'gpt-4o-mini',
+      'phi-4': 'Phi-4',
+      'deepseek-r1': 'DeepSeek-R1',
+    },
+  },
+  {
+    id: 'sambanova',
+    name: 'SambaNova Cloud',
+    baseUrl: 'https://api.sambanova.ai/v1',
+    baseUrls: ['https://api.sambanova.ai/v1'],
+    apiKey: '',
+    apiKeys: [],
+    defaultModel: 'Meta-Llama-3.3-70B-Instruct',
+    activeModel: 'Meta-Llama-3.3-70B-Instruct',
+    priority: 'medium',
+    autoPopulate: true,
+    freeOnly: true,
+    enabled: true,
+    notes: 'Custom RDU hardware, 200k tokens/day free developer tier for Llama 3.3 70B & DeepSeek R1',
+    modelMapping: {
+      'auto': 'Meta-Llama-3.3-70B-Instruct',
+      'llama-3.3-70b': 'Meta-Llama-3.3-70B-Instruct',
+      'deepseek-r1': 'DeepSeek-R1',
+    },
+  },
+  {
+    id: 'together-ai',
+    name: 'Together AI Free',
+    baseUrl: 'https://api.together.ai/v1',
+    baseUrls: ['https://api.together.ai/v1'],
+    apiKey: '',
+    apiKeys: [],
+    defaultModel: 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',
+    activeModel: 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',
+    priority: 'medium',
+    autoPopulate: true,
+    freeOnly: true,
+    enabled: true,
+    notes: 'Dedicated zero-cost endpoints with 60 RPM on Llama 3.3 70B Turbo & DeepSeek R1 Distill',
+    modelMapping: {
+      'auto': 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',
+      'llama-3.3-70b': 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',
+      'deepseek-r1': 'deepseek-ai/DeepSeek-R1-Distill-Llama-70B-Free',
+    },
+  },
+  {
+    id: 'siliconflow',
+    name: 'SiliconFlow Free',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    baseUrls: ['https://api.siliconflow.cn/v1'],
+    apiKey: '',
+    apiKeys: [],
+    defaultModel: 'Qwen/Qwen2.5-7B-Instruct',
+    activeModel: 'Qwen/Qwen2.5-7B-Instruct',
+    priority: 'medium',
+    autoPopulate: true,
+    freeOnly: true,
+    enabled: true,
+    notes: 'Permanently free open-source catalog for Qwen 2.5, DeepSeek V2.5, and GLM-4',
+    modelMapping: {
+      'auto': 'Qwen/Qwen2.5-7B-Instruct',
+      'qwen-7b': 'Qwen/Qwen2.5-7B-Instruct',
+      'deepseek-v2.5': 'deepseek-ai/DeepSeek-V2.5',
+    },
+  },
+  {
+    id: 'pollinations',
+    name: 'Pollinations AI',
+    baseUrl: 'https://text.pollinations.ai/openai',
+    baseUrls: ['https://text.pollinations.ai/openai'],
+    apiKey: '',
+    apiKeys: [],
+    defaultModel: 'mistral',
+    activeModel: 'mistral',
+    priority: 'medium',
+    autoPopulate: true,
+    freeOnly: true,
+    enabled: true,
+    notes: 'Zero-authentication instant free tier without API keys or credit card',
+    modelMapping: {
+      'auto': 'mistral',
+      'mistral': 'mistral',
+      'llama': 'llama',
+      'qwen': 'qwen',
+    },
+  },
+];
+
 const DEFAULT_CONFIG: KiroGatewayConfig = {
   host: process.env.HOST || '0.0.0.0',
   port: process.env.PORT ? parseInt(process.env.PORT, 10) : 3000,
@@ -100,7 +269,7 @@ const DEFAULT_CONFIG: KiroGatewayConfig = {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean),
-  customProviders: [],
+  customProviders: PRELOADED_CUSTOM_PROVIDERS,
   activeDefaultModel: 'gemini-2.5-flash',
   temperature: 0.7,
   maxTokens: 4096,
@@ -178,9 +347,22 @@ class ConfigManager {
       ? envCustomProviders
       : (fileConfig.customProviders || []);
 
-    const sanitizedCustomProviders = rawCustomProviders.map((p: any, idx: number) =>
+    const userCustomProviders = rawCustomProviders.map((p: any, idx: number) =>
       normalizeCustomProvider(p, idx)
     );
+
+    const userProviderMap = new Map<string, CustomProvider>();
+    for (const cp of userCustomProviders) {
+      userProviderMap.set(cp.id, cp);
+    }
+
+    // Merge: preserve all user-configured providers, and add any missing pre-loaded providers
+    const sanitizedCustomProviders: CustomProvider[] = [...userCustomProviders];
+    for (const pre of PRELOADED_CUSTOM_PROVIDERS) {
+      if (!userProviderMap.has(pre.id)) {
+        sanitizedCustomProviders.push(pre);
+      }
+    }
 
     // Merge: fileConfig takes precedence over default, and explicit non-empty env vars take precedence
     this.config = {

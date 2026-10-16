@@ -97,3 +97,12 @@ export class ContextSanitizer {
 }
 
 export const contextSanitizer = new ContextSanitizer();
+
+/**
+ * Sanitizes unescaped Windows backslashes and LaTeX escapes in JSON strings
+ * while strictly preserving valid JSON escape sequences: \", \\, \/, \b, \f, \n, \r, \t, \uXXXX.
+ */
+export function sanitizeJsonBackslashes(jsonStr: string): string {
+  if (!jsonStr || typeof jsonStr !== 'string') return '';
+  return jsonStr.replace(/(?<!\\)\\(?!["\\\/bfnrtu]|u[0-9a-fA-F]{4})/g, '\\\\');
+}

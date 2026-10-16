@@ -61,7 +61,11 @@
 * **`resilience/`**:
   - `circuit_breaker.ts`: Provider-specific failure threshold tracking and half-open reset logic.
   - `health.ts`: System uptime, active provider counts, token counters, and telemetry metrics.
-  - `ngrok_service.ts`: Optional tunnel service when user provides an explicit `NGROK_AUTHTOKEN`.
+* **`translators/`**:
+  - `tool_extractor.ts`: Multi-format tool extraction engine supporting 13+ LLM formats (Format 1b bare JSON, Format 6b XML tags, Kiro native tool_call, Anthropic tool_use, parameter tags, and code manifest auto-extraction), with tool alias normalization and argument repair.
+  - `tool_translator.ts`: Formats tools for OpenAI/Gemini schemas and generates binary EventStream tool use frames.
+  - `sanitizer.ts`: Context and system prompt sanitizer stripping telemetry signatures, and unescaped backslash normalizer (`sanitizeJsonBackslashes`).
+  - `smithy_parser.ts`: Decodes AWS Bedrock / Smithy conversationState JSON into normalized chat turns.
 * **`config/`**:
   - `index.ts`: Thread-safe configuration manager with `/tmp/kiro_ai_config.json` write fallback for Cloud Run.
   - `catalog.ts`: Comprehensive catalog of 80+ zero-cost free models with live provider synchronization and in-memory caching.

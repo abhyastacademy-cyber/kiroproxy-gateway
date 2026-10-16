@@ -62,3 +62,14 @@ Problem Encountered
   1. Ensure HTTP keep-alive timeouts are set to 65s in `server.ts` to prevent premature socket resets.
   2. Use Cloud Run minimum instances (`--min-instances=1`) in production for zero cold starts.
   3. In-memory model catalog caching ensures `/listAvailableModels` responds in < 1ms even during cold boots.
+
+### 5. Kiro IDE Reports "Error sending prompt: Internal error"
+* **Symptoms**: Kiro IDE shows `Error sending prompt: Internal error (Conversation ID: sess_...)` immediately after submitting a prompt.
+* **Root Cause**: The gateway previously emitted standard AWS Bedrock Converse `:event-type: chunk` frames with base64 `bytes` payload. Kiro IDE's internal extension (`extension.js`) unmarshaller strictly expects Smithy binary frames (`assistantResponseEvent`, `toolUseEvent`, `metadataEvent`). Receiving `:event-type: chunk` threw an unhandled unmarshaller exception.
+* **Resolution**:
+  1. Updated `src/backend/handlers/eventstream.ts`, `bedrock_handler.ts`, and `tool_translator.ts` to stream native Smithy frames:
+     - `assistantResponseEvent`: Direct UTF-8 JSON `{"content":"...","modelId":"...","messageId":"..."}`
+     - `toolUseEvent`: Direct UTF-8 JSON `{"toolUseId":"...","name":"...","input":"...","stop":true}`
+     - `metadataEvent`: Direct UTF-8 JSON `{"tokenUsage":{...},"stopReason":"END_TURN"|"TOOL_USE"}`
+  2. Added Kiro IDE session headers (`x-amzn-kiro-conversation-id`, `x-amzn-kiro-profile-arn`, `x-amzn-requestid`, `x-amzn-session-id`).
+  3. Verified with live regression probe tests identical to `kpgateway.space-z.ai`.

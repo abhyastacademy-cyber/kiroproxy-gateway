@@ -103,6 +103,13 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({ onTestModel, config, onNav
         if (!id.includes('canvas') && !id.includes('ngrok')) return false;
       } else if (activeFilter === 'microsoft') {
         if (!id.includes('phi')) return false;
+      } else if (activeFilter === 'groq') {
+        if (!id.includes('groq') && !owner.includes('groq')) return false;
+      } else if (activeFilter === 'cerebras') {
+        if (!id.includes('cerebras') && !owner.includes('cerebras')) return false;
+      } else if (activeFilter === 'custom') {
+        const customKeywords = ['groq', 'cerebras', 'github', 'sambanova', 'together', 'siliconflow', 'pollinations', 'glm', 'abhyast'];
+        if (!customKeywords.some((k) => id.includes(k) || owner.includes(k))) return false;
       } else if (activeFilter === 'community') {
         const communitySlugs = ['hermes', 'dolphin', 'openchat', 'zephyr', 'mythomax', 'rogue', 'toppy'];
         if (!communitySlugs.some((s) => id.includes(s))) return false;
@@ -193,13 +200,16 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({ onTestModel, config, onNav
             {[
               { id: 'all', label: `All (${models.length})` },
               { id: 'auto', label: 'Automode & Otomode' },
+              { id: 'custom', label: '⚡ Pre-loaded Custom' },
+              { id: 'groq', label: 'Groq Cloud' },
+              { id: 'cerebras', label: 'Cerebras Cloud' },
               { id: 'deepseek', label: 'DeepSeek (R1 / V3)' },
               { id: 'llama', label: 'Meta Llama' },
               { id: 'qwen', label: 'Qwen & QwQ' },
               { id: 'mistral', label: 'Mistral' },
               { id: 'gemini', label: 'Google Gemini' },
-              { id: 'canvas', label: 'Canvas Bridge' },
               { id: 'microsoft', label: 'Microsoft Phi' },
+              { id: 'canvas', label: 'Canvas Bridge' },
               { id: 'community', label: 'Community' },
             ].map((f) => (
               <button

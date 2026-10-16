@@ -1,7 +1,10 @@
 /**
- * AWS Bedrock binary EventStream encoder and decoder with CRC32 calculation.
+ * AWS EventStream binary encoder and decoder with IEEE 802.3 CRC32 calculation.
  * Encodes text chunks and tool calls into application/vnd.amazon.eventstream frames
- * expected by Kiro IDE and AWS Bedrock streaming clients.
+ * matching the Smithy binary protocol expected by Kiro IDE and Amazon Q Developer:
+ * - assistantResponseEvent: Direct UTF-8 JSON { content, modelId?, messageId? }
+ * - toolUseEvent: Direct UTF-8 JSON { toolUseId, name, input, stop: true }
+ * - metadataEvent: Direct UTF-8 JSON { tokenUsage, stopReason }
  */
 
 // Precompute CRC32 IEEE 802.3 lookup table
@@ -61,7 +64,7 @@ export function encodeHeaders(headers: BedrockHeader[]): Buffer {
 }
 
 /**
- * Builds a complete AWS Bedrock EventStream message frame.
+ * Builds a complete AWS EventStream message frame with 12-byte prelude and 4-byte message CRC.
  */
 export function buildEventStreamFrame(payload: Buffer | string, headers: BedrockHeader[] = []): Buffer {
   const payloadBuf = typeof payload === 'string' ? Buffer.from(payload, 'utf8') : payload;
@@ -96,125 +99,100 @@ export function buildEventStreamFrame(payload: Buffer | string, headers: Bedrock
 }
 
 /**
- * Encodes a text chunk into a Bedrock chunk event frame for Kiro IDE.
- * Kiro IDE expects JSON payloads wrapped with bytes base64.
+ * Creates a native Smithy assistantResponseEvent frame.
+ * Directly decodable by Kiro IDE extension without unmarshaller crashes.
+ */
+export function createAssistantResponseFrame(
+  content: string,
+  modelId?: string,
+  messageId?: string
+): Buffer {
+  const payloadObj: Record<string, any> = { content };
+  if (modelId) payloadObj.modelId = modelId;
+  if (messageId) payloadObj.messageId = messageId;
+
+  return buildEventStreamFrame(JSON.stringify(payloadObj), [
+    { name: ':event-type', value: 'assistantResponseEvent' },
+    { name: ':content-type', value: 'application/json' },
+    { name: ':message-type', value: 'event' },
+  ]);
+}
+
+/**
+ * Creates a native Smithy toolUseEvent frame.
+ * Emits direct tool execution calls with toolUseId, name, arguments string, and stop flag.
+ */
+export function createToolUseEventFrame(
+  toolUseId: string,
+  name: string,
+  input: any,
+  stop: boolean = true
+): Buffer {
+  const inputStr = typeof input === 'string' ? input : JSON.stringify(input || {});
+  const payload = JSON.stringify({
+    toolUseId,
+    name,
+    input: inputStr,
+    stop,
+  });
+
+  return buildEventStreamFrame(payload, [
+    { name: ':event-type', value: 'toolUseEvent' },
+    { name: ':content-type', value: 'application/json' },
+    { name: ':message-type', value: 'event' },
+  ]);
+}
+
+/**
+ * Creates a native Smithy metadataEvent frame to signal turn completion,
+ * token accounting, and stop reasons ('END_TURN' or 'TOOL_USE').
+ */
+export function createMetadataEventFrame(
+  stopReason: string = 'END_TURN',
+  tokenUsage: { uncachedInputTokens?: number; outputTokens?: number; totalTokens?: number } = {}
+): Buffer {
+  const payload = JSON.stringify({
+    tokenUsage: {
+      uncachedInputTokens: tokenUsage.uncachedInputTokens ?? 0,
+      outputTokens: tokenUsage.outputTokens ?? 0,
+      ...(tokenUsage.totalTokens ? { totalTokens: tokenUsage.totalTokens } : {}),
+    },
+    stopReason: stopReason.toUpperCase(),
+  });
+
+  return buildEventStreamFrame(payload, [
+    { name: ':event-type', value: 'metadataEvent' },
+    { name: ':content-type', value: 'application/json' },
+    { name: ':message-type', value: 'event' },
+  ]);
+}
+
+/**
+ * Backward compatibility alias for Bedrock chunk frames -> maps cleanly to assistantResponseEvent.
  */
 export function createBedrockChunkFrame(text: string): Buffer {
-  const innerPayload = JSON.stringify({
-    bytes: Buffer.from(
-      JSON.stringify({
-        contentBlockDelta: {
-          delta: {
-            text,
-          },
-        },
-        delta: {
-          text,
-        },
-        completion: text,
-      }),
-      'utf8'
-    ).toString('base64'),
-  });
-
-  return buildEventStreamFrame(innerPayload, [
-    { name: ':event-type', value: 'chunk' },
-    { name: ':content-type', value: 'application/json' },
-    { name: ':message-type', value: 'event' },
-  ]);
+  return createAssistantResponseFrame(text);
 }
 
 /**
- * Creates final completion frame with custom stopReason (end_turn, tool_use, etc.)
+ * Backward compatibility alias for completion frames -> maps cleanly to metadataEvent.
  */
-export function createBedrockEndFrame(stopReason: string = 'end_turn'): Buffer {
-  const innerPayload = JSON.stringify({
-    bytes: Buffer.from(
-      JSON.stringify({
-        contentBlockStop: true,
-        stopReason,
-      }),
-      'utf8'
-    ).toString('base64'),
-  });
-
-  return buildEventStreamFrame(innerPayload, [
-    { name: ':event-type', value: 'chunk' },
-    { name: ':content-type', value: 'application/json' },
-    { name: ':message-type', value: 'event' },
-  ]);
+export function createBedrockEndFrame(stopReason: string = 'END_TURN'): Buffer {
+  const normalizedReason = stopReason.toLowerCase().includes('tool') ? 'TOOL_USE' : 'END_TURN';
+  return createMetadataEventFrame(normalizedReason);
 }
 
 /**
- * Creates a tool use start frame for AutoMode / OtoMode tool chaining.
+ * Tool use frame helpers for compatibility
  */
-export function createBedrockToolUseStartFrame(index: number, toolUseId: string, name: string): Buffer {
-  const innerPayload = JSON.stringify({
-    bytes: Buffer.from(
-      JSON.stringify({
-        contentBlockIndex: index,
-        start: {
-          toolUse: {
-            toolUseId,
-            name,
-          },
-        },
-      }),
-      'utf8'
-    ).toString('base64'),
-  });
-
-  return buildEventStreamFrame(innerPayload, [
-    { name: ':event-type', value: 'chunk' },
-    { name: ':content-type', value: 'application/json' },
-    { name: ':message-type', value: 'event' },
-  ]);
+export function createBedrockToolUseStartFrame(_index: number, toolUseId: string, name: string): Buffer {
+  return createToolUseEventFrame(toolUseId, name, '', false);
 }
 
-/**
- * Creates a tool use input delta frame for AutoMode / OtoMode.
- */
-export function createBedrockToolUseDeltaFrame(index: number, inputChunk: string): Buffer {
-  const innerPayload = JSON.stringify({
-    bytes: Buffer.from(
-      JSON.stringify({
-        contentBlockIndex: index,
-        delta: {
-          toolUse: {
-            input: inputChunk,
-          },
-        },
-      }),
-      'utf8'
-    ).toString('base64'),
-  });
-
-  return buildEventStreamFrame(innerPayload, [
-    { name: ':event-type', value: 'chunk' },
-    { name: ':content-type', value: 'application/json' },
-    { name: ':message-type', value: 'event' },
-  ]);
+export function createBedrockToolUseDeltaFrame(_index: number, inputChunk: string): Buffer {
+  return createToolUseEventFrame('', '', inputChunk, false);
 }
 
-/**
- * Creates a tool use stop frame signaling the tool invocation is complete.
- */
-export function createBedrockToolUseStopFrame(index: number = 0): Buffer {
-  const innerPayload = JSON.stringify({
-    bytes: Buffer.from(
-      JSON.stringify({
-        contentBlockIndex: index,
-        stop: {
-          toolUse: true,
-        },
-      }),
-      'utf8'
-    ).toString('base64'),
-  });
-
-  return buildEventStreamFrame(innerPayload, [
-    { name: ':event-type', value: 'chunk' },
-    { name: ':content-type', value: 'application/json' },
-    { name: ':message-type', value: 'event' },
-  ]);
+export function createBedrockToolUseStopFrame(_index: number = 0): Buffer {
+  return createMetadataEventFrame('TOOL_USE');
 }

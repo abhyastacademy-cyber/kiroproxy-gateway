@@ -7,16 +7,19 @@
 
 ## 1. Unbreakable Invariants
 
-### Invariant 1: IEEE 802.3 CRC32 EventStream Framing
-* **The Rule**: Responses streamed to Kiro IDE on `/generateAssistantResponse` MUST adhere strictly to the binary AWS Bedrock EventStream format.
+### Invariant 1: IEEE 802.3 CRC32 EventStream Framing & Smithy Event Types
+* **The Rule**: Responses streamed to Kiro IDE on `/generateAssistantResponse` MUST adhere strictly to the binary AWS EventStream protocol using Smithy event types (`assistantResponseEvent`, `toolUseEvent`, `metadataEvent`).
 * **The Structure**:
   - `Total Length` (4 bytes, Big Endian)
   - `Headers Length` (4 bytes, Big Endian)
   - `Prelude CRC32` (4 bytes, Big Endian)
-  - `Headers`: `:content-type` (`application/json`), `:event-type` (`chunk`), `:message-type` (`event`)
-  - `Payload`: Raw JSON object containing `bytes` (base64-encoded chunk text)
+  - `Headers`:
+    - `:content-type` (`application/json`)
+    - `:message-type` (`event`)
+    - `:event-type` (`assistantResponseEvent` for text chunks, `toolUseEvent` for tools, `metadataEvent` for completion)
+  - `Payload`: Direct UTF-8 JSON (`{"content":"..."}` or `{"toolUseId":"...","name":"...","input":"...","stop":true}`)
   - `Message CRC32` (4 bytes, Big Endian)
-* **The Trap**: If any single byte offset or CRC calculation is wrong, Kiro IDE silently hangs or crashes with an unhandled stream error.
+* **The Trap**: Emitting AWS Bedrock Converse `:event-type: chunk` or wrapping in base64 `bytes` causes Kiro IDE's internal extension unmarshaller to crash with `Error sending prompt: Internal error`. Kiro IDE strictly recognizes Smithy binary frames.
 
 ### Invariant 2: Cloud Run Read-Only Filesystem & `/tmp` Fallback
 * **The Rule**: Cloud Run container filesystems are strictly read-only everywhere except `/tmp`.
@@ -35,6 +38,10 @@
 ### Invariant 5: Unique React & Catalog Keys
 * **The Rule**: Every model in `catalog.ts` must have a guaranteed unique `id`.
 * **The Trap**: If OpenRouter and custom providers emit models with identical IDs, React throws a duplicate key error in the model catalog list, disrupting UI reconciliation.
+
+### Invariant 6: Multi-Format Tool Extraction Normalization
+* **The Rule**: Open-source models returning embedded tool syntax (fenced JSON, bare JSON, Anthropic XML, Kiro native tool_call, Qwen/DeepSeek tags, or code manifests) MUST be extracted, normalized via `normalizeToolAliases` (`write_file` -> `fs_write`, `run_command` -> `execute_pwsh`), and emitted as native AWS Bedrock EventStream toolUse frames.
+* **The Trap**: If tool syntax is sent only as plain chat text, Kiro IDE will not trigger automated file modifications or terminal commands.
 
 ---
 

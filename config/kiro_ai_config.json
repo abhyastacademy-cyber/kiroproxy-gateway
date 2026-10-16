@@ -4,11 +4,11 @@
   "publicDomainUrl": "https://ais-dev-vmz6rsevgimvknb6mnpxvs-585423051125.asia-southeast1.run.app",
   "adminToken": "",
   "providerPriorityOrder": [
+    "gemini",
     "kilo",
     "cline",
     "openrouter",
     "orcarouter",
-    "gemini",
     "custom",
     "canvas"
   ],
@@ -79,6 +79,165 @@
       "freeOnly": true,
       "enabled": true,
       "notes": "Priority: high"
+    },
+    {
+      "id": "cerebras",
+      "name": "Cerebras Cloud",
+      "baseUrl": "https://api.cerebras.ai/v1",
+      "baseUrls": [
+        "https://api.cerebras.ai/v1"
+      ],
+      "apiKey": "",
+      "apiKeys": [],
+      "defaultModel": "llama-3.3-70b",
+      "activeModel": "llama-3.3-70b",
+      "priority": "high",
+      "autoPopulate": true,
+      "freeOnly": true,
+      "enabled": true,
+      "notes": "Wafer-scale engine (~1,500 tok/s), 1,000,000 free tokens/day daily reset",
+      "modelMapping": {
+        "auto": "llama-3.3-70b",
+        "llama-3.3-70b": "llama-3.3-70b",
+        "llama-3.1-8b": "llama3.1-8b",
+        "deepseek-r1": "deepseek-r1-distill-llama-70b"
+      }
+    },
+    {
+      "id": "mistral",
+      "name": "Mistral AI",
+      "baseUrl": "https://api.mistral.ai/v1",
+      "baseUrls": [
+        "https://api.mistral.ai/v1"
+      ],
+      "apiKey": "",
+      "apiKeys": [],
+      "defaultModel": "codestral-latest",
+      "activeModel": "codestral-latest",
+      "priority": "high",
+      "autoPopulate": true,
+      "freeOnly": true,
+      "enabled": true,
+      "notes": "Premier 22B coding model Codestral, free experimentation tier, 60 RPM",
+      "modelMapping": {
+        "auto": "codestral-latest",
+        "codestral": "codestral-latest",
+        "mistral-small": "mistral-small-latest",
+        "mistral-nemo": "open-mistral-nemo"
+      }
+    },
+    {
+      "id": "github-models",
+      "name": "GitHub Models",
+      "baseUrl": "https://models.inference.ai.azure.com",
+      "baseUrls": [
+        "https://models.inference.ai.azure.com"
+      ],
+      "apiKey": "",
+      "apiKeys": [],
+      "defaultModel": "gpt-4o-mini",
+      "activeModel": "gpt-4o-mini",
+      "priority": "high",
+      "autoPopulate": true,
+      "freeOnly": true,
+      "enabled": true,
+      "notes": "Free with any standard GitHub PAT (ghp_...), 50-150 requests/day for GPT-4o, Phi-4, Claude & Mistral",
+      "modelMapping": {
+        "auto": "gpt-4o-mini",
+        "gpt-4o": "gpt-4o",
+        "gpt-4o-mini": "gpt-4o-mini",
+        "phi-4": "Phi-4",
+        "deepseek-r1": "DeepSeek-R1"
+      }
+    },
+    {
+      "id": "sambanova",
+      "name": "SambaNova Cloud",
+      "baseUrl": "https://api.sambanova.ai/v1",
+      "baseUrls": [
+        "https://api.sambanova.ai/v1"
+      ],
+      "apiKey": "",
+      "apiKeys": [],
+      "defaultModel": "Meta-Llama-3.3-70B-Instruct",
+      "activeModel": "Meta-Llama-3.3-70B-Instruct",
+      "priority": "medium",
+      "autoPopulate": true,
+      "freeOnly": true,
+      "enabled": true,
+      "notes": "Custom RDU hardware, 200k tokens/day free developer tier for Llama 3.3 70B & DeepSeek R1",
+      "modelMapping": {
+        "auto": "Meta-Llama-3.3-70B-Instruct",
+        "llama-3.3-70b": "Meta-Llama-3.3-70B-Instruct",
+        "deepseek-r1": "DeepSeek-R1"
+      }
+    },
+    {
+      "id": "together-ai",
+      "name": "Together AI Free",
+      "baseUrl": "https://api.together.ai/v1",
+      "baseUrls": [
+        "https://api.together.ai/v1"
+      ],
+      "apiKey": "",
+      "apiKeys": [],
+      "defaultModel": "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+      "activeModel": "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+      "priority": "medium",
+      "autoPopulate": true,
+      "freeOnly": true,
+      "enabled": true,
+      "notes": "Dedicated zero-cost endpoints with 60 RPM on Llama 3.3 70B Turbo & DeepSeek R1 Distill",
+      "modelMapping": {
+        "auto": "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+        "llama-3.3-70b": "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+        "deepseek-r1": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B-Free"
+      }
+    },
+    {
+      "id": "siliconflow",
+      "name": "SiliconFlow Free",
+      "baseUrl": "https://api.siliconflow.cn/v1",
+      "baseUrls": [
+        "https://api.siliconflow.cn/v1"
+      ],
+      "apiKey": "",
+      "apiKeys": [],
+      "defaultModel": "Qwen/Qwen2.5-7B-Instruct",
+      "activeModel": "Qwen/Qwen2.5-7B-Instruct",
+      "priority": "medium",
+      "autoPopulate": true,
+      "freeOnly": true,
+      "enabled": true,
+      "notes": "Permanently free open-source catalog for Qwen 2.5, DeepSeek V2.5, and GLM-4",
+      "modelMapping": {
+        "auto": "Qwen/Qwen2.5-7B-Instruct",
+        "qwen-7b": "Qwen/Qwen2.5-7B-Instruct",
+        "deepseek-v2.5": "deepseek-ai/DeepSeek-V2.5"
+      }
+    },
+    {
+      "id": "pollinations",
+      "name": "Pollinations AI",
+      "baseUrl": "https://text.pollinations.ai/openai",
+      "baseUrls": [
+        "https://text.pollinations.ai/openai"
+      ],
+      "apiKey": "",
+      "apiKeys": [],
+      "defaultModel": "mistral",
+      "activeModel": "mistral",
+      "priority": "medium",
+      "autoPopulate": true,
+      "freeOnly": true,
+      "enabled": true,
+      "notes": "Zero-authentication instant free tier without API keys or credit card",
+      "modelMapping": {
+        "auto": "mistral",
+        "mistral": "mistral",
+        "llama": "llama",
+        "qwen": "qwen"
+      }
     }
   ],
   "activeDefaultModel": "gemini-2.5-flash",
@@ -86,7 +245,7 @@
   "maxTokens": 4096,
   "enableNgrokTunnel": false,
   "ngrokAuthToken": "",
-  "geminiApiKey": "",
+  "geminiApiKey": "AIzaSyBw8SnFMdyGLcgYHQiYa2lmHSPATADZBsk",
   "geminiApiKeys": [],
   "kiloApiKey": "",
   "kiloApiKeys": [],
