@@ -38,10 +38,18 @@ export class CustomProviderService {
           onChunk
         );
       } catch (gemErr: any) {
-        console.warn(`[CustomProvider:BackendAI] Gemini server key failed (${gemErr.message}). Cascading to secondary auto-auth zero-cost fallback...`);
-        const { runProviderOtomode } = await import('./otomode.js');
-        const otoRes = await runProviderOtomode('kilo', { messages, targetModel: 'kilo-auto/free' }, onChunk);
-        return otoRes.text;
+        console.warn(`[CustomProvider:BackendAI] Gemini server key failed (${gemErr.message}). Checking secondary provider credentials...`);
+        const { configManager } = await import('../config/index.js');
+        const cfg = configManager.getConfig();
+        const activeCore = (['kilo', 'openrouter', 'cline', 'orcarouter'] as const).find(
+          (p) => (cfg[`${p}ApiKeys` as keyof typeof cfg] as string[])?.length > 0 || cfg[`${p}ApiKey` as keyof typeof cfg]
+        );
+        if (activeCore) {
+          const { runProviderOtomode } = await import('./otomode.js');
+          const otoRes = await runProviderOtomode(activeCore, { messages, targetModel: `${activeCore}-auto/free` }, onChunk);
+          return otoRes.text;
+        }
+        throw new Error(`Gemini API key invalid or unconfigured (${gemErr.message}). Please configure a key in the Api Keys tab.`);
       }
     }
 

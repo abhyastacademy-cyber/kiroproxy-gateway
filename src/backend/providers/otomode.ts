@@ -183,21 +183,24 @@ export async function runProviderOtomode(
 
   // For HTTP/SSE providers (kilo, openrouter, cline, orcarouter):
   let lastError: Error | null = null;
-  const hasRealKey = candidateApiKeys.some((k) => k && k.trim().length > 0);
-  
+  const validKeys = candidateApiKeys.filter((k) => k && k.trim().length > 0);
+  if (validKeys.length === 0) {
+    throw new Error(`Tier '${otomode}' has no API keys configured.`);
+  }
+
   // When a specific target model is requested, ONLY attempt that specific model in this tier
   // so the waterfall can quickly advance to the next tier if this provider cannot serve it.
   const modelsToTry = options.targetModel
     ? [options.targetModel]
-    : (hasRealKey ? candidateModels : candidateModels.slice(0, 5));
-  
+    : candidateModels;
+
   // Responsive timeout: 4500ms max per attempt to prevent blocking Kiro IDE
-  const timeoutMs = options.targetModel ? 4500 : (hasRealKey ? 6500 : 3000);
+  const timeoutMs = options.targetModel ? 4500 : 6500;
 
   for (const baseUrl of candidateBaseUrls) {
     let baseUrlFailed = false;
 
-    for (const apiKey of candidateApiKeys) {
+    for (const apiKey of validKeys) {
       if (baseUrlFailed) break;
 
       for (const model of modelsToTry) {

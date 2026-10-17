@@ -25,6 +25,12 @@ export function normalizeGeminiModel(modelName: string): string {
   return clean;
 }
 
+const REVOKED_API_KEYS = new Set([
+  'AIzaSyBw8SnFMdyGLcgYHQiYa2lmHSPATADZBsk',
+  'MY_GEMINI_API_KEY',
+  'auto-authenticated',
+]);
+
 export class GeminiProvider {
   private activeKeyIndex: number = 0;
   private deadApiKeys: Set<string> = new Set();
@@ -42,23 +48,23 @@ export class GeminiProvider {
   }
 
   private getCandidateKeys(customKey?: string): string[] {
-    if (customKey && customKey.trim().length > 0 && customKey !== 'MY_GEMINI_API_KEY' && !this.deadApiKeys.has(customKey.trim())) {
+    if (customKey && customKey.trim().length > 0 && !REVOKED_API_KEYS.has(customKey.trim()) && !this.deadApiKeys.has(customKey.trim())) {
       return [customKey.trim()];
     }
     const config = configManager.getConfig();
     const keys: string[] = [];
     if (Array.isArray(config.geminiApiKeys)) {
       for (const k of config.geminiApiKeys) {
-        if (k && k.trim().length > 0 && k !== 'MY_GEMINI_API_KEY' && !this.deadApiKeys.has(k.trim()) && !keys.includes(k.trim())) {
+        if (k && k.trim().length > 0 && !REVOKED_API_KEYS.has(k.trim()) && !this.deadApiKeys.has(k.trim()) && !keys.includes(k.trim())) {
           keys.push(k.trim());
         }
       }
     }
-    if (config.geminiApiKey && config.geminiApiKey.trim().length > 0 && config.geminiApiKey !== 'MY_GEMINI_API_KEY' && !this.deadApiKeys.has(config.geminiApiKey.trim()) && !keys.includes(config.geminiApiKey.trim())) {
+    if (config.geminiApiKey && config.geminiApiKey.trim().length > 0 && !REVOKED_API_KEYS.has(config.geminiApiKey.trim()) && !this.deadApiKeys.has(config.geminiApiKey.trim()) && !keys.includes(config.geminiApiKey.trim())) {
       keys.push(config.geminiApiKey.trim());
     }
     const envKey = process.env.GEMINI_API_KEY;
-    if (envKey && envKey.trim().length > 0 && envKey !== 'MY_GEMINI_API_KEY' && !this.deadApiKeys.has(envKey.trim()) && !keys.includes(envKey.trim())) {
+    if (envKey && envKey.trim().length > 0 && !REVOKED_API_KEYS.has(envKey.trim()) && !this.deadApiKeys.has(envKey.trim()) && !keys.includes(envKey.trim())) {
       keys.push(envKey.trim());
     }
     return keys;
@@ -165,6 +171,8 @@ export class GeminiProvider {
           );
           if (
             errMsg.includes('API_KEY_INVALID') ||
+            errMsg.includes('API key not valid') ||
+            errMsg.includes('INVALID_ARGUMENT') ||
             errMsg.includes('leaked') ||
             errMsg.includes('403') ||
             errMsg.includes('PERMISSION_DENIED')
