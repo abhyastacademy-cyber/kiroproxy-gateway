@@ -71,8 +71,12 @@ export const ApiKeysTab: React.FC<ApiKeysTabProps> = ({ config, onSaveConfig }) 
     const raw = (newKeyInputs[provider] || '').trim();
     if (!raw || !config) return;
 
+    const singleKey = `${provider}ApiKey` as keyof GatewayConfig;
     const arrayKey = `${provider}ApiKeys` as keyof GatewayConfig;
-    const currentKeys: string[] = Array.isArray(config[arrayKey]) ? [...(config[arrayKey] as string[])] : [];
+    const currentKeys: string[] = Array.isArray(config[arrayKey]) && (config[arrayKey] as string[]).length > 0
+      ? [...(config[arrayKey] as string[])]
+      : (config[singleKey] ? [config[singleKey] as string] : []);
+
     const keysToAdd = raw.split(/[\n,]+/).map((k) => k.trim()).filter(Boolean);
 
     for (const k of keysToAdd) {
@@ -81,7 +85,11 @@ export const ApiKeysTab: React.FC<ApiKeysTabProps> = ({ config, onSaveConfig }) 
       }
     }
 
-    const ok = await onSaveConfig({ [arrayKey]: currentKeys } as any);
+    const ok = await onSaveConfig({
+      [arrayKey]: currentKeys,
+      [singleKey]: currentKeys[0] || '',
+    } as any);
+
     if (ok) {
       setNewKeyInputs((prev) => ({ ...prev, [provider]: '' }));
     }
@@ -89,16 +97,27 @@ export const ApiKeysTab: React.FC<ApiKeysTabProps> = ({ config, onSaveConfig }) 
 
   const handleRemoveKey = async (provider: CoreProvider, idx: number) => {
     if (!config) return;
+    const singleKey = `${provider}ApiKey` as keyof GatewayConfig;
     const arrayKey = `${provider}ApiKeys` as keyof GatewayConfig;
-    const currentKeys = Array.isArray(config[arrayKey]) ? [...(config[arrayKey] as string[])] : [];
+    const currentKeys: string[] = Array.isArray(config[arrayKey]) && (config[arrayKey] as string[]).length > 0
+      ? [...(config[arrayKey] as string[])]
+      : (config[singleKey] ? [config[singleKey] as string] : []);
+
     currentKeys.splice(idx, 1);
-    await onSaveConfig({ [arrayKey]: currentKeys } as any);
+    await onSaveConfig({
+      [arrayKey]: currentKeys,
+      [singleKey]: currentKeys[0] || '',
+    } as any);
   };
 
   const handleMoveKey = async (provider: CoreProvider, idx: number, dir: -1 | 1) => {
     if (!config) return;
+    const singleKey = `${provider}ApiKey` as keyof GatewayConfig;
     const arrayKey = `${provider}ApiKeys` as keyof GatewayConfig;
-    const currentKeys = Array.isArray(config[arrayKey]) ? [...(config[arrayKey] as string[])] : [];
+    const currentKeys: string[] = Array.isArray(config[arrayKey]) && (config[arrayKey] as string[]).length > 0
+      ? [...(config[arrayKey] as string[])]
+      : (config[singleKey] ? [config[singleKey] as string] : []);
+
     const target = idx + dir;
     if (target < 0 || target >= currentKeys.length) return;
 
@@ -106,7 +125,10 @@ export const ApiKeysTab: React.FC<ApiKeysTabProps> = ({ config, onSaveConfig }) 
     currentKeys[idx] = currentKeys[target];
     currentKeys[target] = tmp;
 
-    await onSaveConfig({ [arrayKey]: currentKeys } as any);
+    await onSaveConfig({
+      [arrayKey]: currentKeys,
+      [singleKey]: currentKeys[0] || '',
+    } as any);
   };
 
   return (
@@ -138,6 +160,10 @@ export const ApiKeysTab: React.FC<ApiKeysTabProps> = ({ config, onSaveConfig }) 
                     {p.id === 'kilo' ? (
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                         Zero-Key Mode Active
+                      </span>
+                    ) : p.id === 'gemini' ? (
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        {keys.length > 0 ? `${keys.length} Custom Key(s) + Backend Auto-Auth` : 'Backend Auto-Auth Active (process.env)'}
                       </span>
                     ) : keys.length > 0 ? (
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">

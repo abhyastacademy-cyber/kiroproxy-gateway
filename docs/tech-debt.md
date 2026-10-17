@@ -38,3 +38,8 @@
 2. **Frontend Bundle Splitting**: Configured manual vendor chunking in `vite.config.ts`, eliminating the monolithic 633 kB bundle and separating `vendor-react` and `vendor-icons` for cached browser distribution.
 3. **Static Asset Caching**: Added immutable 1-year cache headers for `/dist/assets/*` in `server.ts`.
 4. **Smithy Wire Protocol Alignment**: Fully aligned binary event frames with Kiro IDE's internal unmarshaller (`assistantResponseEvent`, `toolUseEvent`, `metadataEvent`), resolving the "Internal error" crash.
+5. **Claude Code CLI & Anthropic Messages v1 Compatibility**: Added `anthropic_handler.ts` implementing `POST /v1/messages` with streaming SSE and tool-calling extraction.
+6. **Backend Auto-Auth AI Architecture**: Integrated `backend-ai/*` with server-level runtime credentials (`MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API`) for zero-key execution.
+7. **Dead Keys Auto-Purging & Leaked Key Guard**: Implemented `deadApiKeys` registry in `gemini_provider.ts` to purge 403-revoked keys instantly and cascade down the waterfall.
+8. **Atomic Key Synchronization**: Synchronized scalar keys (`geminiApiKey`) and array keys (`geminiApiKeys`) across frontend and backend for persistent key deletions.
+9. **Fast Failover on 401/403**: Immediate `baseUrlFailed = true` breaks upon unauthenticated responses, preventing 15-second loop timeouts.

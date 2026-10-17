@@ -30,12 +30,19 @@ export class CustomProviderService {
         provider.defaultModel ||
         'gemini-flash-latest';
 
-      return await geminiProvider.streamGenerate(
-        messages,
-        undefined,
-        targetGeminiModel,
-        onChunk
-      );
+      try {
+        return await geminiProvider.streamGenerate(
+          messages,
+          undefined,
+          targetGeminiModel,
+          onChunk
+        );
+      } catch (gemErr: any) {
+        console.warn(`[CustomProvider:BackendAI] Gemini server key failed (${gemErr.message}). Cascading to secondary auto-auth zero-cost fallback...`);
+        const { runProviderOtomode } = await import('./otomode.js');
+        const otoRes = await runProviderOtomode('kilo', { messages, targetModel: 'kilo-auto/free' }, onChunk);
+        return otoRes.text;
+      }
     }
 
     if (urls.length === 0) {
@@ -113,7 +120,8 @@ export class CustomProviderService {
       'HTTP-Referer': 'https://kiroproxy.ai.studio',
       'X-Title': 'KiroProxy Cloud Gateway v2.8.0',
     };
-    if (apiKey) {
+    const isPlaceholder = !apiKey || apiKey === 'auto-authenticated' || apiKey.startsWith('MY_') || apiKey.includes('YOUR_');
+    if (apiKey && !isPlaceholder) {
       headers['Authorization'] = `Bearer ${apiKey}`;
     }
 
@@ -126,7 +134,7 @@ export class CustomProviderService {
     });
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 45000);
+    const timeout = setTimeout(() => controller.abort(), 20000);
 
     try {
       const resp = await fetch(endpoint, {
@@ -138,7 +146,7 @@ export class CustomProviderService {
 
       if (!resp.ok) {
         const errText = await resp.text().catch(() => '');
-        throw new Error(`HTTP ${resp.status}: ${errText.substring(0, 300)}`);
+        throw new Error(`HTTP ${resp.status}: ${errText.substring(0, 200)}`);
       }
 
       if (!resp.body) {

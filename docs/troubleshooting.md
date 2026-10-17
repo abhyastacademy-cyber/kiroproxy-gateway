@@ -100,3 +100,22 @@ Problem Encountered
    - Intercepts `InvokeMCPStreamCommand` in `RIt` middleware, returning a synthetic HTTP 200 OK empty stream.
 4. **Extension Patch 3A+**:
    - Restricts `RKo` dynamic rerouting strictly to `t === "runtime"`.
+
+---
+
+### 7. Leaked Key Error (HTTP 403: "Your API key was reported as leaked")
+* **Symptoms**: Generation logs show: `{"error":{"message":"Your API key was reported as leaked. Please use another API key.","status":"PERMISSION_DENIED"}}`.
+* **Root Cause**: A plain text API key was committed or saved to `config/kiro_ai_config.json`. Cloud security scanners automatically detect secrets in repository config files and revoke them.
+* **Resolution**:
+  1. Open `config/kiro_ai_config.json` and reset `"geminiApiKey": ""` and `"geminiApiKeys": []`.
+  2. The gateway automatically purges any 403-flagged key via `geminiProvider.markKeyAsDead(key)` and cascades down the waterfall (`kilo -> cline -> openrouter -> orcarouter`).
+  3. For zero-key backend operation, rely on `MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API` (`backend-ai/*`), which uses server environment credentials without plain keys on disk.
+
+---
+
+### 8. Key Deletion in Web UI Does Not Persist (Zombie Keys)
+* **Symptoms**: Deleting a key under "Google Gemini Direct" in the UI appears to delete the key, but after refreshing the page, the key reappears.
+* **Root Cause**: The configuration schema contains both a scalar key (`geminiApiKey`) and an array (`geminiApiKeys`). Deleting the key removed it from the array, but left the scalar property intact on disk, which re-populated the array on reload.
+* **Resolution**:
+  1. In `updateConfig` (`src/backend/config/index.ts`), synchronizing single-key and array-key properties is handled atomically on every mutation.
+  2. `ApiKeysTab.tsx` now passes both `[arrayKey]` and `[singleKey]: currentKeys[0] || ''` on all add, remove, and reorder operations.

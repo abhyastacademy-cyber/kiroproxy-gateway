@@ -12,8 +12,11 @@
 | :--- | :--- | :--- | :--- | :--- |
 | `src/backend/handlers/eventstream.ts` | AWS Bedrock Protocol | Kiro IDE Client | IDE hangs, crashes with protocol parse errors, or rejects response | Run synthetic binary frame test; inspect CRC32 calculation |
 | `src/backend/handlers/bedrock_handler.ts` | `server.ts`, Kiro extension | `providerManager`, EventStream | Rejection of prompts, 401 unauthenticated drops, memory leaks on streaming | Test `/generateAssistantResponse` with both raw text and ConversationState JSON |
-| `src/backend/providers/provider_manager.ts` | Bedrock & OpenAI handlers | All 7 provider tiers | Complete failure of AI generation; waterfall starvation | Test in `TesterTab.tsx`; verify fallback across tiers on forced 429 |
+| `src/backend/handlers/anthropic_handler.ts` | Claude Code CLI, Cursor, Anthropic SDKs | `providerManager`, SSE streaming | Claude Code CLI session failure, tool use decoding drop | Test `/v1/messages` with streaming SSE and tool extraction |
+| `src/backend/providers/provider_manager.ts` | Bedrock, Anthropic & OpenAI handlers | All 7 provider tiers | Complete failure of AI generation; waterfall starvation | Test in `TesterTab.tsx`; verify fallback across tiers on forced 429 |
 | `src/backend/providers/otomode.ts` | `provider_manager.ts` | Kilo, Cline, OpenRouter, OrcaRouter | High latency timeouts (>20s), 429 rate limit stalls | Test specific model routing (`deepseek-r1:free`) and `global-automode` |
+| `src/backend/providers/custom_provider.ts` | `provider_manager.ts`, `backend-ai` | Backend Auto-Auth AI, Custom endpoints | Leaked key drops, unhandled custom endpoint crashes | Verify `backend-ai/auto` execution and zero-key cascading |
+| `src/backend/providers/gemini_provider.ts` | `provider_manager.ts`, `custom_provider.ts` | Server Gemini API SDK | Infinite 403 loops on leaked keys; dead key starvation | Verify `deadApiKeys` auto-purging and multi-model fallback |
 | `src/backend/config/index.ts` | All backend modules | File persistence, `/tmp` storage | Read-only filesystem crashes on Cloud Run; lost API keys | Verify write operation succeeds on read-only mock or container filesystem |
 | `src/backend/config/catalog.ts` | `openai_handler.ts`, `server.ts` | `/v1/models`, `/listAvailableModels`, UI | Model list empty; duplicated keys; React render crashes | Verify unique IDs in catalog; test `/v1/models` JSON |
 | `server.ts` | Cloud Run environment | All HTTP traffic | App fails to boot; port binding collision; cold start timeouts | Run `npm run lint` && `npm run build` |

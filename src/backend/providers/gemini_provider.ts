@@ -27,25 +27,38 @@ export function normalizeGeminiModel(modelName: string): string {
 
 export class GeminiProvider {
   private activeKeyIndex: number = 0;
+  private deadApiKeys: Set<string> = new Set();
+
+  public markKeyAsDead(key: string): void {
+    if (key && key.trim().length > 0) {
+      this.deadApiKeys.add(key.trim());
+      console.warn(`[GeminiProvider] Key ${key.trim().substring(0, 8)}... marked as DEAD (leaked/invalid).`);
+    }
+  }
+
+  public clearDeadKeys(): void {
+    this.deadApiKeys.clear();
+    console.log('[GeminiProvider] Dead keys cache cleared.');
+  }
 
   private getCandidateKeys(customKey?: string): string[] {
-    if (customKey && customKey.trim().length > 0 && customKey !== 'MY_GEMINI_API_KEY') {
+    if (customKey && customKey.trim().length > 0 && customKey !== 'MY_GEMINI_API_KEY' && !this.deadApiKeys.has(customKey.trim())) {
       return [customKey.trim()];
     }
     const config = configManager.getConfig();
     const keys: string[] = [];
     if (Array.isArray(config.geminiApiKeys)) {
       for (const k of config.geminiApiKeys) {
-        if (k && k.trim().length > 0 && k !== 'MY_GEMINI_API_KEY' && !keys.includes(k.trim())) {
+        if (k && k.trim().length > 0 && k !== 'MY_GEMINI_API_KEY' && !this.deadApiKeys.has(k.trim()) && !keys.includes(k.trim())) {
           keys.push(k.trim());
         }
       }
     }
-    if (config.geminiApiKey && config.geminiApiKey.trim().length > 0 && config.geminiApiKey !== 'MY_GEMINI_API_KEY' && !keys.includes(config.geminiApiKey.trim())) {
+    if (config.geminiApiKey && config.geminiApiKey.trim().length > 0 && config.geminiApiKey !== 'MY_GEMINI_API_KEY' && !this.deadApiKeys.has(config.geminiApiKey.trim()) && !keys.includes(config.geminiApiKey.trim())) {
       keys.push(config.geminiApiKey.trim());
     }
     const envKey = process.env.GEMINI_API_KEY;
-    if (envKey && envKey.trim().length > 0 && envKey !== 'MY_GEMINI_API_KEY' && !keys.includes(envKey.trim())) {
+    if (envKey && envKey.trim().length > 0 && envKey !== 'MY_GEMINI_API_KEY' && !this.deadApiKeys.has(envKey.trim()) && !keys.includes(envKey.trim())) {
       keys.push(envKey.trim());
     }
     return keys;
@@ -156,6 +169,7 @@ export class GeminiProvider {
             errMsg.includes('403') ||
             errMsg.includes('PERMISSION_DENIED')
           ) {
+            this.markKeyAsDead(apiKey);
             break; // Skip remaining models for this dead key
           }
         }

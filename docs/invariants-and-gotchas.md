@@ -47,6 +47,15 @@
 * **The Rule**: The gateway MUST absorb auxiliary AWS / Kiro background requests (`POST /`, `POST /mcp/stream`, `POST /events`, `POST /telemetry`, `POST /activity/publish`) and respond with HTTP 200 OK `{ __type: "com.amazon.kiro.runtimeservice#Success", status: "ok" }`.
 * **The Trap**: If any auxiliary call hits an unhandled 404 or 405 Method Not Allowed (e.g. Next.js static root route rejection), Kiro IDE's internal `IUu` unmarshaller crashes immediately with `Error sending prompt: Internal error`. Extension Patch 3B (`resolveTarget` returning `void 0`) prevents telemetry spam from reaching the network.
 
+### Invariant 8: Zero Plain-Text Secrets in Repository Configs
+* **The Rule**: Plain API keys must NEVER be committed or persisted in `config/kiro_ai_config.json` or `.env.example`.
+* **The Trap**: Automated cloud security scanners (such as Google Cloud Secret Scanner) continuously monitor repository config files. Any key stored in plaintext on disk is automatically flagged as leaked and permanently revoked with `HTTP 403 PERMISSION_DENIED: Your API key was reported as leaked`.
+* **The Enforcement**: Key configuration uses stateless environment variables (`process.env.GEMINI_API_KEY`, `process.env.OPENROUTER_API_KEY`) and in-memory dead-key auto-purging.
+
+### Invariant 9: Atomic SingleKey & ArrayKey State Synchronization
+* **The Rule**: Core providers maintaining both scalar properties (`geminiApiKey`) and vector arrays (`geminiApiKeys`) must be synchronized atomically upon any add, remove, or reorder action.
+* **The Trap**: Deleting from `geminiApiKeys` without clearing `geminiApiKey` causes subsequent reloads to re-populate the deleted key from the scalar property.
+
 ---
 
 ## 2. Known Gotchas & Race Conditions
@@ -64,3 +73,13 @@
 ### Gotcha 3: Admin Token Authentication Bypass
 * **Issue**: If `PROXY_ADMIN_TOKEN` is unset or empty, the gateway functions in open/public mode.
 * **Gotcha**: When configuring security tokens, Kiro IDE needs the token either in the URL (`/k/<token>/...`) or via the `x-admin-token` header. The Patcher tab generates the exact patch script including this token.
+
+### Gotcha 4: Fast Failover on 401/403 vs Linear Model Iteration
+* **Issue**: Unkeyed requests hitting endpoints requiring auth credentials return HTTP 401 ("No cookie auth credentials found").
+* **Gotcha**: Iterating sequentially through all candidate models on an unauthenticated tier wastes up to 15 seconds.
+* **Fix**: Catch blocks in `otomode.ts` immediately flag `baseUrlFailed = true` upon receiving 401, 403, or "No cookie auth", bypassing the remainder of that tier in under 1ms.
+
+### Gotcha 5: Claude Code CLI Anthropic Messages Compatibility
+* **Issue**: Claude Code CLI (`@anthropic-ai/claude-code`) speaks the Anthropic Messages API (`POST /v1/messages`), not OpenAI or Bedrock EventStream.
+* **Gotcha**: Standard OpenAI streaming chunks lack the Anthropic event lifecycle (`message_start`, `content_block_start`, `content_block_delta`, `content_block_stop`, `message_delta`, `message_stop`) and cause CLI hangs.
+* **Fix**: `src/backend/handlers/anthropic_handler.ts` translates messages, tools (`Bash`, `FileEdit`, `GlobTool`), and model names with full SSE streaming and `tool_use` deltas.

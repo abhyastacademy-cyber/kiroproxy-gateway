@@ -449,6 +449,26 @@ class ConfigManager {
       ...partial,
     };
 
+    // Synchronize singleKey and arrayKey for all core providers on key updates/deletions
+    for (const p of ['gemini', 'kilo', 'cline', 'openrouter', 'orcarouter']) {
+      const singleKey = `${p}ApiKey` as keyof KiroGatewayConfig;
+      const arrayKey = `${p}ApiKeys` as keyof KiroGatewayConfig;
+
+      if (partial[arrayKey] !== undefined && Array.isArray(partial[arrayKey])) {
+        const arr = partial[arrayKey] as string[];
+        (this.config as any)[singleKey] = arr[0] || '';
+      } else if (partial[singleKey] !== undefined) {
+        const str = (partial[singleKey] as string) || '';
+        (this.config as any)[arrayKey] = str ? [str] : [];
+      }
+    }
+
+    if (partial.geminiApiKey !== undefined || partial.geminiApiKeys !== undefined) {
+      import('../providers/gemini_provider.js').then(({ geminiProvider }) => {
+        geminiProvider.clearDeadKeys();
+      }).catch(() => {});
+    }
+
     // Ensure directory exists and write
     const dir = path.dirname(this.activeConfigPath);
     try {

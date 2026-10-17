@@ -283,7 +283,7 @@
   "maxTokens": 4096,
   "enableNgrokTunnel": false,
   "ngrokAuthToken": "",
-  "geminiApiKey": "AIzaSyBw8SnFMdyGLcgYHQiYa2lmHSPATADZBsk",
+  "geminiApiKey": "",
   "geminiApiKeys": [],
   "kiloApiKey": "",
   "kiloApiKeys": [],

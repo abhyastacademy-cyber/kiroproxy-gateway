@@ -58,9 +58,31 @@ curl -N -X POST http://127.0.0.1:3000/api/test/generate \
 
 ### Step 4: Kiro IDE End-to-End EventStream Verification
 1. Launch Kiro IDE.
-2. Select model `gemini-2.5-flash` or `auto`.
+2. Select model `backend-ai/auto`, `gemini-2.5-flash`, or `global-automode`.
 3. Send a prompt (e.g. `What time is it?`).
 4. Ensure the response streams incrementally in Kiro IDE's chat window without deserialization errors or aborted streams.
+
+### Step 5: Claude Code CLI Verification
+```bash
+export ANTHROPIC_BASE_URL="http://127.0.0.1:3000"
+export ANTHROPIC_API_KEY="auto-auth"
+claude
+```
+Verify that `POST /v1/messages` streams SSE events (`message_start`, `content_block_start`, `content_block_delta`, `message_delta`, `message_stop`) and tool calls (`Bash`, `FileEdit`) are recognized.
+
+### Step 6: Backend Auto-Auth Verification (Zero User Keys)
+```bash
+node -e '
+const http = require("http");
+const postData = JSON.stringify({ modelId: "backend-ai/auto", conversationState: { currentMessage: { content: "PING" } } });
+const req = http.request({ hostname: "localhost", port: 3000, path: "/generateAssistantResponse", method: "POST", headers: { "Content-Type": "application/json" } }, (res) => {
+  console.log("Status:", res.statusCode, "Type:", res.headers["content-type"]);
+});
+req.write(postData);
+req.end();
+'
+```
+Asserts HTTP 200 with `application/vnd.amazon.eventstream` binary framing.
 
 ---
 

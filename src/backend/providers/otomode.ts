@@ -296,7 +296,10 @@ export async function runProviderOtomode(
             err.name === 'AbortError' ||
             err.message.includes('fetch failed') ||
             err.message.includes('ECONNREFUSED') ||
-            err.message.includes('ETIMEDOUT')
+            err.message.includes('ETIMEDOUT') ||
+            err.message.includes('401') ||
+            err.message.includes('403') ||
+            err.message.includes('No cookie auth')
           ) {
             baseUrlFailed = true;
             break;
